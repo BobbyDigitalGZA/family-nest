@@ -12,7 +12,10 @@ export interface QueryLike extends PromiseLike<QueryResult> {
   eq(column: string, value: unknown): QueryLike
   gte(column: string, value: string): QueryLike
   lt(column: string, value: string): QueryLike
+  /** Chain several calls for a multi-column order (first call = primary key of the sort). */
   order(column: string, opts?: { ascending?: boolean }): QueryLike
+  /** Rows from..to inclusive, by position in the ordered result. */
+  range(from: number, to: number): QueryLike
 }
 
 export interface ChannelLike {

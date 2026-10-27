@@ -3,6 +3,9 @@ import type { DataClient, QueryLike, QueryResult } from '../data/client'
 type Row = Record<string, unknown>
 type Listener = () => void
 
+/** PostgREST's default max_rows on Supabase: a response never carries more rows than this. */
+export const MAX_ROWS = 1000
+
 /** In-memory stand-in for the Supabase client, for repository and realtime tests. */
 export function makeFakeClient() {
   const calls: { fn: string; args: Row }[] = []
@@ -13,6 +16,7 @@ export function makeFakeClient() {
   const updated: { table: string; values: Row; filters: Row }[] = []
   const bounds: { table: string; op: string; col: string; val: string }[] = []
   const rpcData = new Map<string, unknown>()
+  const ranges: { table: string; from: number; to: number }[] = []
   let rpcError: string | null = null
 
   const client: DataClient = {
@@ -25,6 +29,8 @@ export function makeFakeClient() {
     },
     from(table) {
       let rows = [...(tables.get(table) ?? [])]
+      const sortKeys: { col: string; asc: boolean }[] = []
+      let span: [number, number] | null = null
       const q: QueryLike = {
         eq(col: string, val: unknown) {
           rows = rows.filter((r) => r[col] === val)
@@ -40,12 +46,26 @@ export function makeFakeClient() {
           rows = rows.filter((r) => Date.parse(String(r[col])) < Date.parse(val))
           return q
         },
-        order() {
+        order(col: string, opts?: { ascending?: boolean }) {
+          sortKeys.push({ col, asc: opts?.ascending !== false })
           return q
         },
-        // Thenable on purpose, like the real query builder.
+        range(from: number, to: number) {
+          ranges.push({ table, from, to })
+          span = [from, to]
+          return q
+        },
+        // Thenable on purpose, like the real query builder. Like PostgREST, never more than MAX_ROWS.
         then(ok, bad) {
-          return Promise.resolve({ data: rows, error: null } as QueryResult).then(ok, bad)
+          const sorted = [...rows].sort((x, y) => {
+            for (const k of sortKeys) {
+              const c = String(x[k.col]).localeCompare(String(y[k.col]), 'en', { numeric: true })
+              if (c !== 0) return k.asc ? c : -c
+            }
+            return 0
+          })
+          const sliced = span ? sorted.slice(span[0], span[1] + 1) : sorted
+          return Promise.resolve({ data: sliced.slice(0, MAX_ROWS), error: null } as QueryResult).then(ok, bad)
         },
       }
       return {
@@ -65,6 +85,9 @@ export function makeFakeClient() {
               return u
             },
             order() {
+              return u
+            },
+            range() {
               return u
             },
             then(ok, bad) {
@@ -107,6 +130,7 @@ export function makeFakeClient() {
   return {
     client,
     rpcCalls: (fn: string): Row[] => calls.filter((c) => c.fn === fn).map((c) => c.args),
+    ranges: (table: string) => ranges.filter((r) => r.table === table),
     bounds: (table: string) => bounds.filter((b) => b.table === table),
     updates: (table: string) => updated.filter((u) => u.table === table),
     setRpcData: (fn: string, data: unknown) => void rpcData.set(fn, data),

@@ -9,7 +9,7 @@ import type {
   Recurrence,
   Task,
 } from '../domain/types'
-import { getClient, type QueryResult } from './client'
+import { getClient, type QueryLike, type QueryResult } from './client'
 import {
   completionFromRow,
   familyFromRow,
@@ -54,8 +54,37 @@ function unwrap(res: QueryResult): unknown {
   return res.data
 }
 
-async function rows(table: string): Promise<Row[]> {
-  return (unwrap(await getClient().from(table).select('*')) as Row[] | null) ?? []
+/**
+ * PostgREST answers at most max_rows rows (1000 on Supabase) and truncates silently, so every
+ * read is paged with a stable order. PAGE must not exceed the server's max_rows: a short page
+ * is how the loop knows it reached the end.
+ */
+export const PAGE = 1000
+
+async function allPages(make: () => QueryLike): Promise<Row[]> {
+  const out: Row[] = []
+  for (let from = 0; ; from += PAGE) {
+    const page = (unwrap(await make().range(from, from + PAGE - 1)) as Row[] | null) ?? []
+    out.push(...page)
+    if (page.length < PAGE) return out
+  }
+}
+
+/** Primary key of each table read whole: a stable order for paging. */
+const ORDER: Record<string, string[]> = {
+  family: ['id'],
+  member: ['id'],
+  task: ['id'],
+  occurrence_override: ['task_id', 'occurrence_date'],
+  completion: ['task_id', 'occurrence_date'],
+}
+
+function rows(table: string, columns = '*'): Promise<Row[]> {
+  const order = ORDER[table]
+  if (!order) throw new Error(`no-order-for-${table}`)
+  return allPages(() =>
+    order.reduce((q, col) => q.order(col, { ascending: true }), getClient().from(table).select(columns)),
+  )
 }
 
 export async function loadFamilySnapshot(): Promise<FamilySnapshot> {
@@ -85,15 +114,20 @@ export async function loadEvents(filter?: {
   from?: string
   to?: string
 }): Promise<EventRow[]> {
-  let q = getClient().from('event_log').select('*')
-  if (filter?.memberId) q = q.eq('actor_id', filter.memberId)
-  if (filter?.type) q = q.eq('type', filter.type)
-  if (filter?.taskId) q = q.eq('task_id', filter.taskId)
-  if (filter?.from) q = q.gte('at', filter.from)
-  if (filter?.to) q = q.lt('at', filter.to)
-  const events = (unwrap(await q.order('id', { ascending: false })) as Row[] | null) ?? []
-  const titles = new Map((await rows('task')).map((r) => [String(r.id), String(r.title)] as const))
-  return events.map((r) => {
+  const query = () => {
+    let q = getClient().from('event_log').select('*')
+    if (filter?.memberId) q = q.eq('actor_id', filter.memberId)
+    if (filter?.type) q = q.eq('type', filter.type)
+    if (filter?.taskId) q = q.eq('task_id', filter.taskId)
+    if (filter?.from) q = q.gte('at', filter.from)
+    if (filter?.to) q = q.lt('at', filter.to)
+    return q.order('id', { ascending: false })
+  }
+  const [events, tasks] = await Promise.all([allPages(query), rows('task', 'id,title')])
+  const titles = new Map(tasks.map((r) => [String(r.id), String(r.title)] as const))
+  // An event written between two pages shifts the offsets: the same row may come twice.
+  const seen = new Set<number>()
+  return events.filter((r) => !seen.has(Number(r.id)) && seen.add(Number(r.id))).map((r) => {
     const taskId = r.task_id == null ? null : String(r.task_id)
     return {
       id: Number(r.id),

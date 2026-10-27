@@ -319,6 +319,62 @@ describe('repo', () => {
     expect(ev).toEqual([expect.objectContaining({ id: 2, taskTitle: 'X', actorId: 'm1' })])
   })
 
+  test('las lecturas se paginan: 2,500 marcas vuelven todas, en orden estable', async () => {
+    fake.setTable('family', [
+      { id: 'f1', name: 'F', time_zone: 'America/Lima', late_mark_until: '10:00:00' },
+    ])
+    fake.setTable('member', [])
+    fake.setTable('task', [])
+    fake.setTable('occurrence_override', [])
+    const many = Array.from({ length: 2500 }, (_, i) => ({
+      task_id: `t${i % 7}`,
+      occurrence_date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`,
+      family_id: 'f1',
+      completed_at: '2026-01-01T00:00:00Z',
+      completed_by_id: 'm1',
+      late: false,
+      n: i,
+    }))
+    fake.setTable('completion', many)
+    const s = await loadFamilySnapshot()
+    expect(s.completions).toHaveLength(2500)
+    expect(fake.ranges('completion').map((r) => [r.from, r.to])).toEqual([
+      [0, 999],
+      [1000, 1999],
+      [2000, 2999],
+    ])
+  })
+
+  test('el fake corta en 1000 como PostgREST: sin paginar se perderían filas', async () => {
+    fake.setTable('task', Array.from({ length: 1500 }, (_, i) => ({ id: `t${i}` })))
+    const raw = (await fake.client.from('task').select('*')).data as unknown[]
+    expect(raw).toHaveLength(1000)
+  })
+
+  test('loadEvents pagina eventos y títulos (solo id y título)', async () => {
+    fake.setTable(
+      'task',
+      Array.from({ length: 1200 }, (_, i) => ({ id: `t${String(i).padStart(4, '0')}`, title: `T${i}` })),
+    )
+    fake.setTable(
+      'event_log',
+      Array.from({ length: 1300 }, (_, i) => ({
+        id: i + 1,
+        at: '2026-10-27T10:00:00Z',
+        actor_id: 'm1',
+        type: 'completed',
+        task_id: 't1199',
+        occurrence_date: null,
+        device: 'wall',
+        payload: {},
+      })),
+    )
+    const got = await loadEvents({ taskId: 't1199' })
+    expect(got).toHaveLength(1300)
+    expect(got[0]).toMatchObject({ id: 1300, taskTitle: 'T1199' })
+    expect(fake.ranges('task')).toHaveLength(2)
+  })
+
   test('loadEvents pasa los límites de tiempo a la consulta', async () => {
     fake.setTable('task', [])
     fake.setTable('event_log', [
