@@ -359,6 +359,121 @@ async function main(): Promise<void> {
     )
     expect(gone.length === 0, 'quedó el override tras el fallo')
   })
+
+  const ymdIn = (tz: string, plusDays: number): string => {
+    const d = new Date(Date.now() + plusDays * 86_400_000)
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d)
+  }
+  const hourIn = (tz: string): number =>
+    Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
+  // Etc/GMT+N es UTC-N: de Etc/GMT+12 a Etc/GMT-11 cubre todas las horas locales.
+  const zones = Array.from({ length: 24 }, (_, i) => (i < 12 ? `Etc/GMT+${i}` : `Etc/GMT-${i - 11}`))
+  const early = zones.find((z) => hourIn(z) >= 1 && hourIn(z) <= 8)!
+  const lateZone = zones.find((z) => hourIn(z) >= 11 && hourIn(z) <= 22)!
+  const setZone = (tz: string) =>
+    must(admin.from('family').update({ time_zone: tz }).eq('id', A.familyId), 'set tz')
+  const onceTask = async (title: string, due: string): Promise<string> =>
+    (
+      await must(
+        admin
+          .from('task')
+          .insert({ family_id: A.familyId, title, assignee_id: actorA, created_by_id: actorA, rule: 'once', due_date: due })
+          .select('id')
+          .single(),
+        'insert once',
+      )
+    ).id
+  const complete = (task: string, date: string, lateFlag = false) =>
+    a.rpc('rpc_complete', {
+      p_task_id: task,
+      p_date: date,
+      p_late: lateFlag,
+      p_for_other: false,
+      p_actor: actorA,
+      p_device: 'phone',
+    })
+
+  await check('marcar: tras el corte falla; antes del corte es tarde y lo fija el servidor', async () => {
+    await setZone(lateZone)
+    const yLate = await onceTask('ayer-tarde', ymdIn(lateZone, -1))
+    expect(denied((await complete(yLate, ymdIn(lateZone, -1), true)).error), 'ayer pasadas las 10:00 pasó')
+    await setZone(early)
+    const old = await onceTask('antier', ymdIn(early, -2))
+    expect(denied((await complete(old, ymdIn(early, -2))).error), 'hace dos días pasó')
+    const y = await onceTask('ayer-temprano', ymdIn(early, -1))
+    const ok = await complete(y, ymdIn(early, -1), false)
+    expect(!ok.error, `ayer antes de las 10:00 falló: ${ok.error?.message}`)
+    const row = await must(admin.from('completion').select('late').eq('task_id', y).single(), 'row')
+    expect(row.late === true, 'late no lo fijó el servidor')
+    const ev = await must(
+      admin.from('event_log').select('payload').eq('task_id', y).eq('type', 'completed').single(),
+      'ev',
+    )
+    expect((ev.payload as { late: boolean }).late === true, 'evento sin late')
+    const today = await onceTask('hoy', ymdIn(early, 0))
+    expect(!(await complete(today, ymdIn(early, 0), true)).error, 'hoy falló')
+    const r2 = await must(admin.from('completion').select('late').eq('task_id', today).single(), 'row2')
+    expect(r2.late === false, 'hoy quedó como tarde por p_late')
+    await setZone('UTC')
+  })
+
+  await check('marcar una fecha en que la tarea no ocurre falla', async () => {
+    expect(denied((await complete(A.weeklyId, '2030-01-03')).error), 'jueves (no programado) pasó')
+    expect(denied((await complete(A.taskId, '2030-01-11')).error), 'fecha distinta a la de la tarea pasó')
+    await must(
+      a.rpc('rpc_delete_occurrence', { p_task_id: A.weeklyId, p_date: '2030-01-14', p_actor: actorA, p_device: 'phone' }),
+      'del occ',
+    )
+    expect(denied((await complete(A.weeklyId, '2030-01-14')).error), 'ocurrencia borrada pasó')
+  })
+
+  await check('rpc_move: mismo día, día con la misma tarea, no ocurrencia y destino nulo fallan', async () => {
+    const mv = (date: string, target: string | null) =>
+      a.rpc('rpc_move', { p_task_id: A.weeklyId, p_date: date, p_target: target, p_actor: actorA, p_device: 'phone' })
+    expect(denied((await mv('2030-01-16', '2030-01-16')).error), 'mismo día pasó')
+    expect(denied((await mv('2030-01-16', null)).error), 'destino nulo pasó')
+    expect(denied((await mv('2030-01-15', '2030-01-17')).error), 'no ocurrencia (martes 15) pasó')
+    expect(denied((await mv('2030-01-16', '2030-01-21')).error), 'destino con la misma tarea (lunes 21) pasó')
+    expect(denied((await mv('2030-01-16', '2030-01-08')).error), 'destino con ocurrencia movida pasó')
+    expect(!(await mv('2030-01-16', '2030-01-17')).error, 'un movimiento válido falló')
+  })
+
+  await check('tarea de otra familia: rpc_complete y rpc_move fallan y B queda vacía', async () => {
+    const c = await a.rpc('rpc_complete', {
+      p_task_id: B.taskId, p_date: '2030-01-10', p_late: false, p_for_other: false, p_actor: actorA, p_device: 'phone',
+    })
+    expect(denied(c.error), 'complete de tarea ajena pasó')
+    const m = await a.rpc('rpc_move', {
+      p_task_id: B.weeklyId, p_date: '2030-01-07', p_target: '2030-01-08', p_actor: actorA, p_device: 'phone',
+    })
+    expect(denied(m.error), 'move de tarea ajena pasó')
+    const comp = await must(admin.from('completion').select('task_id').eq('family_id', B.familyId), 'comp B')
+    const ov = await must(admin.from('occurrence_override').select('task_id').eq('family_id', B.familyId), 'ov B')
+    const ev = await must(admin.from('event_log').select('id').eq('family_id', B.familyId), 'ev B')
+    expect(comp.length === 0 && ov.length === 0 && ev.length === 0, 'B tiene escrituras de A')
+  })
+
+  await check('time_zone inválida se rechaza en update directo', async () => {
+    expect(
+      denied((await a.from('family').update({ time_zone: 'Mars/Phobos' }).eq('id', A.familyId)).error),
+      'zona inválida pasó',
+    )
+    const good = await a.from('family').update({ time_zone: 'UTC' }).eq('id', A.familyId).select()
+    expect(!good.error && good.data?.length === 1, 'zona válida falló')
+  })
+
+  await check('un miembro inactivo pierde el acceso', async () => {
+    await must(admin.from('member').update({ active: false }).eq('id', actorA), 'deactivate')
+    try {
+      const t = await a.from('task').select('id')
+      expect(!t.error && (t.data?.length ?? 0) === 0, 'inactivo sigue viendo tareas')
+      expect(denied((await complete(A.weeklyId, '2030-01-17')).error), 'inactivo escribió')
+    } finally {
+      await must(admin.from('member').update({ active: true }).eq('id', actorA), 'reactivate')
+    }
+    const back = await must(a.from('task').select('id'), 'back')
+    expect(back.length > 0, 'no volvió el acceso')
+  })
 }
 
 let crashed: unknown = null

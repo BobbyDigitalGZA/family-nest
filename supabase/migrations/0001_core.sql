@@ -121,6 +121,20 @@ create table public.interaction (
 );
 create index interaction_family_idx on public.interaction (family_id);
 
+create function public._check_time_zone() returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from pg_catalog.pg_timezone_names where name = new.time_zone) then
+    raise exception 'invalid-time-zone' using errcode = '22023';
+  end if;
+  return new;
+end;
+$$;
+create trigger family_time_zone before insert or update of time_zone on public.family
+  for each row execute function public._check_time_zone();
+
 -- ---------------------------------------------------------------------------
 -- Identidad de la sesión
 -- ---------------------------------------------------------------------------
@@ -131,7 +145,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select family_id from public.member where auth_user_id = auth.uid()
+  select family_id from public.member where auth_user_id = auth.uid() and active
   union all
   select family_id from public.wall_device where auth_user_id = auth.uid()
   limit 1
@@ -214,7 +228,7 @@ declare
   code text;
 begin
   loop
-    bytes := decode(replace(gen_random_uuid()::text, '-', ''), 'hex');
+    bytes := extensions.gen_random_bytes(8);
     code := '';
     for i in 0..7 loop
       code := code || substr(alphabet, (get_byte(bytes, i) % 32) + 1, 1);
@@ -276,6 +290,58 @@ begin
   end if;
   return t;
 end;
+$$;
+
+-- ¿La regla de la tarea la programa ese día? (espejo de isScheduledOn en src/domain/recurrence.ts)
+create function public._scheduled_on(t public.task, d date) returns boolean
+language sql
+immutable
+as $$
+  select case t.rule
+    when 'once' then t.due_date = d
+    when 'weekly' then d >= t.start_date and (t.end_date is null or d <= t.end_date)
+      and extract(isodow from d)::smallint = any (t.weekdays)
+    when 'monthly' then d >= t.start_date and (t.end_date is null or d <= t.end_date)
+      and extract(day from d)::int = least(
+        t.month_day,
+        extract(day from (date_trunc('month', d) + interval '1 month - 1 day'))::int)
+    else false
+  end
+$$;
+
+-- Ocurrencia viva identificada por su fecha original: programada y no borrada.
+create function public._occurs_on(p_task_id uuid, p_original date) returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((
+    select public._scheduled_on(t, p_original)
+       and not coalesce((select o.deleted from public.occurrence_override o
+                          where o.task_id = t.id and o.occurrence_date = p_original), false)
+      from public.task t
+     where t.id = p_task_id and t.deleted_at is null
+  ), false)
+$$;
+
+-- ¿Cae alguna ocurrencia de la tarea EN ese día (por regla o movida hasta él)?
+create function public._has_occurrence_on(p_task_id uuid, p_day date) returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+      from (select p_day as orig
+            union
+            select o.occurrence_date from public.occurrence_override o
+             where o.task_id = p_task_id and o.moved_to = p_day) c
+     where public._occurs_on(p_task_id, c.orig)
+       and coalesce((select o.moved_to from public.occurrence_override o
+                      where o.task_id = p_task_id and o.occurrence_date = c.orig), c.orig) = p_day
+  )
 $$;
 
 create function public._log_event(
@@ -518,14 +584,31 @@ declare
   v_family uuid := public._actor_family(p_actor);
   t public.task := public._live_task(p_task_id, v_family);
   v_rows int;
+  v_tz text;
+  v_now timestamp;
+  v_late boolean;
 begin
+  -- p_late se ignora: el servidor decide (espejo de canMarkDone). 10:00 fijo hasta que
+  -- la Tarea 7 agregue family.late_mark_until.
+  select time_zone into v_tz from public.family where id = v_family;
+  v_now := now() at time zone v_tz;
+  if p_date is null or not public._occurs_on(p_task_id, p_date) then
+    raise exception 'not-an-occurrence' using errcode = 'P0001';
+  end if;
+  if p_date >= v_now::date then
+    v_late := false;
+  elsif p_date = v_now::date - 1 and v_now::time < time '10:00' then
+    v_late := true;
+  else
+    raise exception 'locked' using errcode = 'P0001';
+  end if;
   insert into public.completion (task_id, occurrence_date, family_id, completed_by_id, late)
-  values (p_task_id, p_date, v_family, p_actor, coalesce(p_late, false))
+  values (p_task_id, p_date, v_family, p_actor, v_late)
   on conflict (task_id, occurrence_date) do nothing;
   get diagnostics v_rows = row_count;
   if v_rows = 1 then
     perform public._log_event(v_family, p_actor, 'completed', p_task_id, p_date, p_device,
-      jsonb_build_object('late', coalesce(p_late, false), 'forOther', coalesce(p_for_other, false)));
+      jsonb_build_object('late', v_late, 'forOther', coalesce(p_for_other, false)));
   end if;
 end;
 $$;
@@ -560,6 +643,20 @@ declare
   v_family uuid := public._actor_family(p_actor);
   t public.task := public._live_task(p_task_id, v_family);
 begin
+  -- espejo de canMoveOccurrence
+  if p_target is null or p_date is null then
+    raise exception 'target-required' using errcode = 'P0001';
+  end if;
+  if not public._occurs_on(p_task_id, p_date) then
+    raise exception 'not-an-occurrence' using errcode = 'P0001';
+  end if;
+  if p_target = coalesce((select o.moved_to from public.occurrence_override o
+                           where o.task_id = p_task_id and o.occurrence_date = p_date), p_date) then
+    raise exception 'same-date' using errcode = 'P0001';
+  end if;
+  if public._has_occurrence_on(p_task_id, p_target) then
+    raise exception 'already-occurs' using errcode = 'P0001';
+  end if;
   insert into public.occurrence_override (task_id, occurrence_date, family_id, moved_to, moved_at, moved_by_id)
   values (p_task_id, p_date, v_family, p_target, now(), p_actor)
   on conflict (task_id, occurrence_date) do update
@@ -642,7 +739,9 @@ $$;
 
 revoke all on function
   public._new_join_code(), public._jsonb_smallints(jsonb), public._actor_family(uuid),
-  public._live_task(uuid, uuid),
+  public._live_task(uuid, uuid), public._check_time_zone(),
+  public._scheduled_on(public.task, date), public._occurs_on(uuid, date),
+  public._has_occurrence_on(uuid, date),
   public._log_event(uuid, uuid, text, uuid, date, text, jsonb)
   from public, anon, authenticated;
 
