@@ -1,0 +1,26 @@
+# Dependencies and builds
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.tsbuildinfo
+
+# Secrets and local configuration: never commit these
+.env
+.env.*
+!.env.example
+*.local
+
+# Real family data: seeds with real people stay local
+supabase/seed.local.sql
+supabase/.temp/
+supabase/.branches/
+
+# Logs and editors
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
