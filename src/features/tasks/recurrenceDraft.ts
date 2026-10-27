@@ -1,4 +1,5 @@
 import { isoWeekday } from '../../domain/dates'
+import { validateRecurrence, type RecurrenceProblem } from '../../domain/recurrence'
 import type { PlainDate, Recurrence, Weekday } from '../../domain/types'
 import type { TKey } from '../../i18n/es'
 
@@ -29,17 +30,17 @@ export function draftFromRecurrence(r: Recurrence, fallbackStart: PlainDate): Re
     : { ...base, kind: 'monthly', dayOfMonth: r.dayOfMonth, start: r.start, end: r.end }
 }
 
+const PROBLEM_KEY: Record<RecurrenceProblem, TKey> = {
+  'date-required': 'errDateRequired',
+  'weekdays-required': 'errWeekdaysRequired',
+  'day-of-month-invalid': 'errDayOfMonth',
+  'end-before-start': 'errEndBeforeStart',
+}
+
+/** Mensaje en línea; la regla vive en el dominio (validateRecurrence) y también la aplica la capa de acciones. */
 export function validateDraft(d: RecurrenceDraft): TKey | null {
-  if (!d.start) return 'errDateRequired'
-  if (d.kind === 'weekly' && d.weekdays.length === 0) return 'errWeekdaysRequired'
-  if (d.kind === 'monthly' && !(Number.isInteger(d.dayOfMonth) && d.dayOfMonth >= 1 && d.dayOfMonth <= 31)) {
-    return 'errDayOfMonth'
-  }
-  if (d.end !== null) {
-    if (d.end === '') return 'errDateRequired'
-    if (d.end < d.start) return 'errEndBeforeStart'
-  }
-  return null
+  const problem = validateRecurrence(draftToRecurrence(d))
+  return problem ? PROBLEM_KEY[problem] : null
 }
 
 export function draftToRecurrence(d: RecurrenceDraft): Recurrence {

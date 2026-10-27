@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { setSnapshotSourceForTests } from '../../data/actions'
+import { cambiarCuandoToca, crearTarea, desmarcar, setSnapshotSourceForTests } from '../../data/actions'
 import * as repo from '../../data/repo'
 import type { EventRow, FamilySnapshot } from '../../data/repo'
 import type { Occurrence, Recurrence, Task } from '../../domain/types'
@@ -9,6 +9,7 @@ import { member, task as makeTask, testFamily } from '../../test/factories'
 import { IdentityProvider } from '../identity/IdentityProvider'
 import { DeleteChoice } from './DeleteChoice'
 import { NewTaskSheet } from './NewTaskSheet'
+import { TaskDetail } from './TaskDetail'
 import { TaskRow } from './TaskRow'
 import { TasksProvider } from './TasksProvider'
 
@@ -107,6 +108,11 @@ test('la fila muestra tipo y autora', () => {
 test('la fila de un día y la mensual llevan su leyenda', () => {
   renderRow(makeTask({ kind: 'once', date: TODAY }))
   expect(screen.getByText('Un día')).toBeInTheDocument()
+})
+
+test('la mensual lleva «Cada mes»', () => {
+  renderRow(makeTask({ kind: 'monthly', dayOfMonth: 27, start: '2026-10-01', end: null }))
+  expect(screen.getByText('Cada mes')).toBeInTheDocument()
 })
 
 test('borrar una repetida pregunta siempre, desde la ✕ y desde el detalle', async () => {
@@ -243,7 +249,13 @@ test('el detalle muestra creación, fecha, tipo y mueve solo esa ocurrencia', as
   const d = await openDetail('Sacar la basura')
   expect(within(d).getByText('1 de octubre de 2026')).toBeInTheDocument()
   expect(within(d).getByText(/^Tarea ·/)).toBeInTheDocument()
-  fireEvent.change(within(d).getByLabelText('Fecha en que toca'), { target: { value: '2026-10-29' } })
+  const due = within(d).getByLabelText('Fecha en que toca')
+  fireEvent.change(due, { target: { value: '2026-10-28' } })
+  fireEvent.change(due, { target: { value: '2026-10-29' } })
+  // escribir la fecha no mueve nada: solo el botón «Mover»
+  expect(screen.queryByRole('dialog', { name: '¿Quién eres?' })).toBeNull()
+  expect(repo.moveOccurrence).not.toHaveBeenCalled()
+  await userEvent.click(within(d).getByRole('button', { name: 'Mover' }))
   await pickActor('Ana')
   await waitFor(() =>
     expect(repo.moveOccurrence).toHaveBeenCalledWith(t, [], TODAY, '2026-10-29', 'm1', 'wall'),
@@ -288,6 +300,92 @@ test('una de un día pasado queda bloqueada tras las 10:00 a. m. del día siguie
   renderRow(makeTask({ kind: 'once', date: '2026-10-25' }), '2026-10-25')
   expect(screen.getByRole('checkbox')).toBeDisabled()
   expect(screen.getByText('Bloqueada')).toBeInTheDocument()
+})
+
+test('una marcada fuera de la ventana no se puede desmarcar (casilla y acción)', async () => {
+  const t = makeTask({ kind: 'once', date: '2026-10-25' })
+  const snapshot: FamilySnapshot = {
+    family: testFamily,
+    members,
+    tasks: [t],
+    overrides: [],
+    completions: [
+      { taskId: 't1', occurrenceDate: '2026-10-25', completedAt: '2026-10-25T20:00:00Z', completedById: 'm1', late: false },
+    ],
+  }
+  setSnapshotSourceForTests(() => Promise.resolve(snapshot))
+  render(
+    <IdentityProvider device="wall" members={members}>
+      <TasksProvider value={{ snapshot, reload, readOnly: false }}>
+        <ul>
+          <TaskRow occurrence={occ(t, '2026-10-25')} task={t} />
+        </ul>
+      </TasksProvider>
+    </IdentityProvider>,
+  )
+  expect(screen.getByRole('checkbox')).toBeDisabled()
+  await expect(desmarcar('t1', '2026-10-25', 'm1', 'wall')).rejects.toThrow('locked')
+  expect(repo.uncompleteOccurrence).not.toHaveBeenCalled()
+  // hoy sí se puede desmarcar
+  setSnapshotSourceForTests(() => Promise.resolve({ ...snapshot, tasks: [makeTask({ kind: 'once', date: TODAY })] }))
+  await desmarcar('t1', TODAY, 'm1', 'wall')
+  expect(repo.uncompleteOccurrence).toHaveBeenCalledWith('t1', TODAY, 'm1', 'wall')
+})
+
+test('el detalle relee sus valores en cada apertura', async () => {
+  const t = makeTask({ kind: 'once', date: TODAY })
+  const snap = (title: string): FamilySnapshot => ({
+    family: testFamily,
+    members,
+    tasks: [{ ...t, title }],
+    overrides: [],
+    completions: [],
+  })
+  const ui = (title: string, open: boolean) => (
+    <IdentityProvider device="wall" members={members}>
+      <TasksProvider value={{ snapshot: snap(title), reload, readOnly: false }}>
+        <TaskDetail taskId="t1" originalDate={TODAY} open={open} onClose={() => {}} />
+      </TasksProvider>
+    </IdentityProvider>
+  )
+  const view = render(ui('Sacar la basura', true))
+  expect(screen.getByLabelText('Nombre')).toHaveValue('Sacar la basura')
+  view.rerender(ui('Sacar la basura', false))
+  view.rerender(ui('Sacar el reciclaje', false))
+  view.rerender(ui('Sacar el reciclaje', true))
+  expect(screen.getByLabelText('Nombre')).toHaveValue('Sacar el reciclaje')
+})
+
+test('la nueva tarea empieza limpia y relee los valores por defecto en cada apertura', async () => {
+  const snapshot: FamilySnapshot = { family: testFamily, members, tasks: [], overrides: [], completions: [] }
+  const ui = (open: boolean, who: string) => (
+    <IdentityProvider device="wall" members={members}>
+      <TasksProvider value={{ snapshot, reload, readOnly: false }}>
+        <NewTaskSheet open={open} onClose={() => {}} defaultAssigneeId={who} />
+      </TasksProvider>
+    </IdentityProvider>
+  )
+  const view = render(ui(true, 'm2'))
+  await userEvent.type(screen.getByLabelText('Nombre'), 'borrador')
+  expect(screen.getByLabelText('Para quién')).toHaveValue('m2')
+  view.rerender(ui(false, 'm2'))
+  view.rerender(ui(true, 'm3'))
+  expect(screen.getByLabelText('Nombre')).toHaveValue('')
+  expect(screen.getByLabelText('Para quién')).toHaveValue('m3')
+})
+
+test('crearTarea y cambiarCuandoToca rechazan recurrencias inválidas en la capa de acciones', async () => {
+  const snapshot: FamilySnapshot = { family: testFamily, members, tasks: [makeTask({ kind: 'once', date: TODAY })], overrides: [], completions: [] }
+  setSnapshotSourceForTests(() => Promise.resolve(snapshot))
+  const bad: Recurrence = { kind: 'weekly', weekdays: [], start: TODAY, end: null }
+  await expect(
+    crearTarea({ title: 'x', assigneeId: 'm1', isHousehold: false, recurrence: bad }, 'm1', 'wall'),
+  ).rejects.toThrow('weekdays-required')
+  await expect(cambiarCuandoToca('t1', { ...bad, weekdays: [2], end: '2026-01-01' }, 'm1', 'wall')).rejects.toThrow(
+    'end-before-start',
+  )
+  expect(repo.createTask).not.toHaveBeenCalled()
+  expect(repo.updateTask).not.toHaveBeenCalled()
 })
 
 test('en demostración (solo lectura) no se puede escribir', () => {

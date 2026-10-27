@@ -25,7 +25,12 @@ interface NewTaskSheetProps {
 }
 
 /** Nombre, para quién, cuándo (Hoy, Mañana, Otra fecha), «Se repite» y «De la casa». */
-export function NewTaskSheet({ open, onClose, defaultAssigneeId, defaultDate }: NewTaskSheetProps) {
+export function NewTaskSheet(props: NewTaskSheetProps) {
+  // Montado solo mientras está abierto: cada apertura empieza limpia y relee los valores por defecto.
+  return props.open ? <NewTaskForm {...props} /> : null
+}
+
+function NewTaskForm({ open, onClose, defaultAssigneeId, defaultDate }: NewTaskSheetProps) {
   const { snapshot, readOnly } = useTasksData()
   const { run, error } = useRunAction()
   const today = todayIn(snapshot.family.timeZone, new Date())
@@ -65,13 +70,7 @@ export function NewTaskSheet({ open, onClose, defaultAssigneeId, defaultDate }: 
     }
     const input = { title: title.trim(), assigneeId, isHousehold: household, recurrence }
     const ok = await run((actorId, device) => crearTarea(input, actorId, device))
-    if (ok) {
-      setTitle('')
-      setRepeats(false)
-      setDraft(null)
-      setHousehold(false)
-      onClose()
-    }
+    if (ok) onClose()
   }
 
   return (

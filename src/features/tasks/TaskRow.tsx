@@ -41,7 +41,7 @@ export function TaskRow({ occurrence, task }: TaskRowProps) {
     localTimeIn(snapshot.family.timeZone, now),
     snapshot.family.lateMarkUntil,
   )
-  const locked = !done && !verdict.ok
+  const locked = !verdict.ok // desmarcar sigue la misma ventana que marcar
   const creator = snapshot.members.find((m) => m.id === task.createdById)?.nickname ?? t('unknownMember')
 
   const toggle = () =>

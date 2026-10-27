@@ -3,7 +3,9 @@ import {
   canMoveOccurrence,
   endSeriesFrom,
   occurrencesBetween,
+  validateRecurrence,
 } from './recurrence'
+import type { Recurrence } from './types'
 
 const monthly31 = task({ kind: 'monthly', dayOfMonth: 31, start: '2026-01-01', end: null })
 test('el 31 cae el último día en meses cortos', () => {
@@ -33,4 +35,24 @@ test('borrar todas corta la serie y deja el pasado', () => {
   expect(endSeriesFrom(t, '2026-10-05', '2026-10-27')).toEqual({ kind: 'weekly', weekdays: [1], start: '2026-10-05', end: '2026-10-26' })
   const future = task({ kind: 'weekly', weekdays: [1], start: '2026-11-02', end: null })
   expect(endSeriesFrom(future, '2026-11-02', '2026-10-27')).toBe('delete-task')
+})
+
+describe('validateRecurrence', () => {
+  const w = (over: object) =>
+    ({ kind: 'weekly', weekdays: [2], start: '2026-10-01', end: null, ...over }) as Recurrence
+  test('acepta las válidas', () => {
+    expect(validateRecurrence({ kind: 'once', date: '2026-10-27' })).toBeNull()
+    expect(validateRecurrence(w({}))).toBeNull()
+    expect(validateRecurrence({ kind: 'monthly', dayOfMonth: 31, start: '2026-10-01', end: '2026-12-31' })).toBeNull()
+  })
+  test('rechaza lo inválido', () => {
+    expect(validateRecurrence({ kind: 'once', date: '' })).toBe('date-required')
+    expect(validateRecurrence(w({ start: '' }))).toBe('date-required')
+    expect(validateRecurrence(w({ weekdays: [] }))).toBe('weekdays-required')
+    expect(validateRecurrence({ kind: 'monthly', dayOfMonth: 0, start: '2026-10-01', end: null })).toBe('day-of-month-invalid')
+    expect(validateRecurrence({ kind: 'monthly', dayOfMonth: 32, start: '2026-10-01', end: null })).toBe('day-of-month-invalid')
+    expect(validateRecurrence({ kind: 'monthly', dayOfMonth: NaN, start: '2026-10-01', end: null })).toBe('day-of-month-invalid')
+    expect(validateRecurrence(w({ end: '2026-09-30' }))).toBe('end-before-start')
+    expect(validateRecurrence(w({ end: '' }))).toBe('date-required')
+  })
 })

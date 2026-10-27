@@ -35,7 +35,8 @@ interface TaskDetailProps {
 export function TaskDetail({ taskId, originalDate, open, onClose }: TaskDetailProps) {
   const { snapshot, readOnly } = useTasksData()
   const task = snapshot.tasks.find((x) => x.id === taskId)
-  if (!task) return null
+  // Montado solo mientras está abierto: cada apertura vuelve a leer nombre, fecha y repetición.
+  if (!task || !open) return null
   return (
     <DetailBody
       key={task.id}
@@ -73,6 +74,7 @@ function DetailBody({
   const [events, setEvents] = useState<EventRow[]>([])
   const [eventsError, setEventsError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  const [moving, setMoving] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -97,6 +99,15 @@ function DetailBody({
     const ok = await run(fn)
     if (ok) setVersion((v) => v + 1)
     return ok
+  }
+
+  const move = async () => {
+    if (moving) return
+    setMoving(true)
+    const target = dueDate
+    const ok = await act((a, d) => mover(taskId, originalDate, target, a, d))
+    setMoving(false)
+    if (!ok) setDueDate(currentDate)
   }
 
   const saveWhen = async () => {
@@ -177,16 +188,16 @@ function DetailBody({
               type="date"
               value={dueDate}
               disabled={readOnly}
-              onChange={(e) => {
-                const target = e.target.value
-                setDueDate(target)
-                if (target && target !== currentDate) {
-                  void act((a, d) => mover(taskId, originalDate, target, a, d)).then((ok) => {
-                    if (!ok) setDueDate(currentDate)
-                  })
-                }
-              }}
-            />
+              onChange={(e) => setDueDate(e.target.value)}
+            />{' '}
+            <button
+              type="button"
+              className="fn-btn"
+              disabled={readOnly || moving || !dueDate || dueDate === currentDate}
+              onClick={() => void move()}
+            >
+              {t('moveBtn')}
+            </button>
           </dd>
           <dt>{t('detailType')}</dt>
           <dd>

@@ -1,6 +1,6 @@
 import { canMarkDone, compliance, formatCompliance } from '../domain/completion'
 import { addDays, lastDayOfMonth, localTimeIn, todayIn, weekStart } from '../domain/dates'
-import { occurrencesBetween } from '../domain/recurrence'
+import { occurrencesBetween, validateRecurrence } from '../domain/recurrence'
 import type { Occurrence, PlainDate, Recurrence } from '../domain/types'
 import {
   completeOccurrence,
@@ -42,12 +42,28 @@ export async function crearTarea(input: NewTaskInput, actorId: string, device: D
   await assertFamilyMember(actorId)
   const title = input.title.trim()
   if (title === '') throw new Error('title-required')
+  const problem = validateRecurrence(input.recurrence)
+  if (problem) throw new Error(problem)
   await createTask({ ...input, title }, actorId, device)
 }
 
 export async function asignar(taskId: string, memberId: string, actorId: string, device: Device) {
   await assertFamilyMember(actorId)
   await updateTask(taskId, { assigneeId: memberId }, actorId, device)
+}
+
+/** Marcar y desmarcar comparten ventana: día efectivo de la ocurrencia y family.late_mark_until. */
+function markWindow(s: FamilySnapshot, taskId: string, occurrenceDate: PlainDate) {
+  const now = new Date()
+  const effectiveDate =
+    s.overrides.find((ov) => ov.taskId === taskId && ov.occurrenceDate === occurrenceDate)?.movedTo ??
+    occurrenceDate
+  return canMarkDone(
+    effectiveDate,
+    todayIn(s.family.timeZone, now),
+    localTimeIn(s.family.timeZone, now),
+    s.family.lateMarkUntil,
+  )
 }
 
 export async function completar(
@@ -59,17 +75,7 @@ export async function completar(
   const s = await assertFamilyMember(actorId)
   const task = s.tasks.find((t) => t.id === taskId)
   if (!task) throw new Error('task-not-found')
-  const now = new Date()
-  // The cutoff applies to the day the occurrence actually falls on (moved_to if moved).
-  const effectiveDate =
-    s.overrides.find((ov) => ov.taskId === taskId && ov.occurrenceDate === occurrenceDate)?.movedTo ??
-    occurrenceDate
-  const verdict = canMarkDone(
-    effectiveDate,
-    todayIn(s.family.timeZone, now),
-    localTimeIn(s.family.timeZone, now),
-    s.family.lateMarkUntil,
-  )
+  const verdict = markWindow(s, taskId, occurrenceDate)
   if (!verdict.ok) throw new Error('locked')
   await completeOccurrence(
     taskId,
@@ -96,6 +102,8 @@ export async function cambiarCuandoToca(
   device: Device,
 ) {
   await assertFamilyMember(actorId)
+  const problem = validateRecurrence(recurrence)
+  if (problem) throw new Error(problem)
   await updateTask(taskId, { recurrence }, actorId, device)
 }
 
@@ -105,7 +113,9 @@ export async function desmarcar(
   actorId: string,
   device: Device,
 ) {
-  await assertFamilyMember(actorId)
+  const s = await assertFamilyMember(actorId)
+  if (!s.tasks.some((t) => t.id === taskId)) throw new Error('task-not-found')
+  if (!markWindow(s, taskId, occurrenceDate).ok) throw new Error('locked')
   await uncompleteOccurrence(taskId, occurrenceDate, actorId, device)
 }
 

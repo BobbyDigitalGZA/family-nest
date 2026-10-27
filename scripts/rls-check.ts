@@ -483,6 +483,37 @@ async function main(): Promise<void> {
     await setZone('UTC')
   })
 
+  await check('desmarcar sigue la ventana de marcar: bloqueado fuera de ella, permitido hoy y ayer antes del corte', async () => {
+    const unc = (task: string, date: string) =>
+      a.rpc('rpc_uncomplete', { p_task_id: task, p_date: date, p_actor: actorA, p_device: 'phone' })
+    const seed = (task: string, date: string) =>
+      must(
+        admin
+          .from('completion')
+          .insert({ task_id: task, occurrence_date: date, family_id: A.familyId, completed_by_id: actorA, late: false }),
+        'seed completion',
+      )
+    const has = async (task: string) =>
+      (await must(admin.from('completion').select('task_id').eq('task_id', task), 'has')).length
+    await setZone(lateZone)
+    const yLate = await onceTask('desmarcar-ayer-tarde', ymdIn(lateZone, -1))
+    await seed(yLate, ymdIn(lateZone, -1))
+    expect(denied((await unc(yLate, ymdIn(lateZone, -1))).error), 'desmarcar ayer pasado el corte pasó')
+    expect((await has(yLate)) === 1, 'la marca se borró pese al bloqueo')
+    await setZone(early)
+    const old = await onceTask('desmarcar-antier', ymdIn(early, -2))
+    await seed(old, ymdIn(early, -2))
+    expect(denied((await unc(old, ymdIn(early, -2))).error), 'desmarcar hace dos días pasó')
+    const y = await onceTask('desmarcar-ayer-temprano', ymdIn(early, -1))
+    await seed(y, ymdIn(early, -1))
+    expect(!(await unc(y, ymdIn(early, -1))).error, 'desmarcar ayer antes del corte falló')
+    const today = await onceTask('desmarcar-hoy', ymdIn(early, 0))
+    await seed(today, ymdIn(early, 0))
+    expect(!(await unc(today, ymdIn(early, 0))).error, 'desmarcar hoy falló')
+    expect((await has(today)) === 0, 'hoy no se borró')
+    await setZone('UTC')
+  })
+
   await check('marcar una fecha en que la tarea no ocurre falla', async () => {
     expect(denied((await complete(A.weeklyId, '2030-01-03')).error), 'jueves (no programado) pasó')
     expect(denied((await complete(A.taskId, '2030-01-11')).error), 'fecha distinta a la de la tarea pasó')

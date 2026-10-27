@@ -17,6 +17,10 @@ const BY_CODE: [string, TKey][] = [
   ['not-a-member', 'errNotMember'],
   ['task-not-found', 'errTaskNotFound'],
   ['title-required', 'errTitleRequired'],
+  ['date-required', 'errDateRequired'],
+  ['weekdays-required', 'errWeekdaysRequired'],
+  ['day-of-month-invalid', 'errDayOfMonth'],
+  ['end-before-start', 'errEndBeforeStart'],
 ]
 
 /** Traduce el error de una RPC a un mensaje en español para mostrar a la persona. */

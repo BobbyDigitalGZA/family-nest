@@ -123,6 +123,7 @@ export const es = {
   detailDueOn: 'Fecha en que toca',
   detailType: 'Tipo',
   detailTypeTask: 'Tarea',
+  moveBtn: 'Mover',
   saveName: 'Guardar nombre',
   whenItIs: 'Cuándo toca',
   whenOnce: 'Un día',

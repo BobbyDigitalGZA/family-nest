@@ -108,3 +108,26 @@ export function endSeriesFrom(
   // Never extend a series that already ends before the cut.
   return { ...r, end: r.end !== null && r.end < end ? r.end : end }
 }
+
+export type RecurrenceProblem =
+  | 'date-required'
+  | 'weekdays-required'
+  | 'day-of-month-invalid'
+  | 'end-before-start'
+
+const PLAIN_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Reglas de una recurrencia antes de guardarla; null si es válida. */
+export function validateRecurrence(r: Recurrence): RecurrenceProblem | null {
+  if (r.kind === 'once') return PLAIN_DATE.test(r.date) ? null : 'date-required'
+  if (!PLAIN_DATE.test(r.start)) return 'date-required'
+  if (r.kind === 'weekly' && r.weekdays.length === 0) return 'weekdays-required'
+  if (r.kind === 'monthly' && !(Number.isInteger(r.dayOfMonth) && r.dayOfMonth >= 1 && r.dayOfMonth <= 31)) {
+    return 'day-of-month-invalid'
+  }
+  if (r.end !== null) {
+    if (!PLAIN_DATE.test(r.end)) return 'date-required'
+    if (r.end < r.start) return 'end-before-start'
+  }
+  return null
+}
