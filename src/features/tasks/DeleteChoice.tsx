@@ -3,6 +3,7 @@ import { borrarOcurrencia, borrarSerie } from '../../data/actions'
 import type { PlainDate, Task } from '../../domain/types'
 import { t } from '../../i18n/es'
 import { Sheet } from '../../ui/Sheet'
+import { isLocked } from '../personal/dayData'
 import { useTasksData } from './tasksContext'
 import { useRunAction } from './useRunAction'
 
@@ -16,7 +17,9 @@ interface DeleteChoiceProps {
 
 /** Una repetida siempre pregunta: solo esa ocurrencia, o todas (corta la serie desde ahí). */
 export function DeleteChoice({ task, originalDate, open, onClose, onDeleted }: DeleteChoiceProps) {
-  const { readOnly } = useTasksData()
+  const { readOnly, snapshot } = useTasksData()
+  // "Solo esta" sigue la ventana de marcar: una ocurrencia vencida no se borra (sí se puede excusar).
+  const locked = isLocked(snapshot, task.id, originalDate, new Date())
   const { run, error } = useRunAction()
   const [busy, setBusy] = useState(false)
 
@@ -43,7 +46,7 @@ export function DeleteChoice({ task, originalDate, open, onClose, onDeleted }: D
         <button
           type="button"
           className="fn-btn"
-          disabled={readOnly || busy}
+          disabled={readOnly || busy || locked}
           onClick={() => void choose(borrarOcurrencia)}
         >
           {t('deleteOnlyThis')}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { completar, desmarcar } from '../../data/actions'
 import { canMarkDone } from '../../domain/completion'
 import { localTimeIn, todayIn } from '../../domain/dates'
@@ -6,6 +6,7 @@ import type { Occurrence, Task } from '../../domain/types'
 import { t } from '../../i18n/es'
 import { Checkbox } from '../../ui/Checkbox'
 import { DeleteChoice } from './DeleteChoice'
+import { clearFollow, isFollowed } from './detailFollow'
 import { TaskDetail } from './TaskDetail'
 import { useTasksData } from './tasksContext'
 import { useDeleteFlow } from './useDeleteFlow'
@@ -27,7 +28,9 @@ interface TaskRowProps {
 export function TaskRow({ occurrence, task }: TaskRowProps) {
   const { snapshot, readOnly } = useTasksData()
   const { run, error } = useRunAction()
-  const [detailOpen, setDetailOpen] = useState(false)
+  // Abre su detalle si viene de una serie partida cuyo detalle estaba abierto.
+  const [detailOpen, setDetailOpen] = useState(() => isFollowed(task.id, occurrence.originalDate))
+  useEffect(() => clearFollow(task.id, occurrence.originalDate), [task.id, occurrence.originalDate])
   const del = useDeleteFlow(task, occurrence.originalDate)
 
   const completion = snapshot.completions.find(
@@ -79,7 +82,8 @@ export function TaskRow({ occurrence, task }: TaskRowProps) {
         type="button"
         className="tk-del"
         aria-label={t('deleteLabel')}
-        disabled={readOnly}
+        // Una de un día vencida no tiene qué borrar; una repetida vencida aún puede cortar la serie.
+        disabled={readOnly || (locked && task.recurrence.kind === 'once')}
         onClick={del.start}
       >
         <span aria-hidden="true">✕</span>

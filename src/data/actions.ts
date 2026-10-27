@@ -1,7 +1,7 @@
 import { canMarkDone, compliance, formatCompliance } from '../domain/completion'
 import { addDays, lastDayOfMonth, localTimeIn, todayIn, weekStart } from '../domain/dates'
 import { occurrencesBetween, validateRecurrence } from '../domain/recurrence'
-import type { Occurrence, PlainDate, Recurrence } from '../domain/types'
+import type { Occurrence, PlainDate, Recurrence, Task } from '../domain/types'
 import {
   completeOccurrence,
   createTask,
@@ -47,23 +47,51 @@ export async function crearTarea(input: NewTaskInput, actorId: string, device: D
   await createTask({ ...input, title }, actorId, device)
 }
 
-export async function asignar(taskId: string, memberId: string, actorId: string, device: Device) {
-  await assertFamilyMember(actorId)
-  await updateTask(taskId, { assigneeId: memberId }, actorId, device)
-}
-
-/** Marcar y desmarcar comparten ventana: día efectivo de la ocurrencia y family.late_mark_until. */
-function markWindow(s: FamilySnapshot, taskId: string, occurrenceDate: PlainDate) {
+/** La ventana de marcar de un día: hoy (o después), o ayer antes de family.late_mark_until. */
+function dayWindow(s: FamilySnapshot, day: PlainDate) {
   const now = new Date()
-  const effectiveDate =
-    s.overrides.find((ov) => ov.taskId === taskId && ov.occurrenceDate === occurrenceDate)?.movedTo ??
-    occurrenceDate
   return canMarkDone(
-    effectiveDate,
+    day,
     todayIn(s.family.timeZone, now),
     localTimeIn(s.family.timeZone, now),
     s.family.lateMarkUntil,
   )
+}
+
+/** Marcar, desmarcar, mover y borrar una ocurrencia comparten ventana: la de su día efectivo. */
+function markWindow(s: FamilySnapshot, taskId: string, occurrenceDate: PlainDate) {
+  const effectiveDate =
+    s.overrides.find((ov) => ov.taskId === taskId && ov.occurrenceDate === occurrenceDate)?.movedTo ??
+    occurrenceDate
+  return dayWindow(s, effectiveDate)
+}
+
+function findTask(s: FamilySnapshot, taskId: string): Task {
+  const task = s.tasks.find((t) => t.id === taskId)
+  if (!task) throw new Error('task-not-found')
+  return task
+}
+
+/** Una tarea de un día cuya ventana cerró ya no cambia de persona ni de repetición. */
+function assertSeriesEditable(s: FamilySnapshot, task: Task) {
+  if (task.recurrence.kind === 'once' && !markWindow(s, task.id, task.recurrence.date).ok) {
+    throw new Error('locked')
+  }
+}
+
+/**
+ * Devuelve el id de la tarea que lleva la serie desde hoy. Si la tarea repetida ya tuvo
+ * ocurrencias antes de hoy, el servidor la parte: la vieja termina ayer y la copia es otra tarea.
+ */
+export async function asignar(
+  taskId: string,
+  memberId: string,
+  actorId: string,
+  device: Device,
+): Promise<string> {
+  const s = await assertFamilyMember(actorId)
+  assertSeriesEditable(s, findTask(s, taskId))
+  return updateTask(taskId, { assigneeId: memberId }, actorId, device)
 }
 
 export async function completar(
@@ -94,17 +122,18 @@ export async function renombrar(taskId: string, title: string, actorId: string, 
   await updateTask(taskId, { title: clean }, actorId, device)
 }
 
-/** Cambia la repetición de toda la serie (una vez <-> semanal / mensual). */
+/** Cambia la repetición (una vez <-> semanal / mensual) desde hoy; devuelve el id como asignar. */
 export async function cambiarCuandoToca(
   taskId: string,
   recurrence: Recurrence,
   actorId: string,
   device: Device,
-) {
-  await assertFamilyMember(actorId)
+): Promise<string> {
+  const s = await assertFamilyMember(actorId)
   const problem = validateRecurrence(recurrence)
   if (problem) throw new Error(problem)
-  await updateTask(taskId, { recurrence }, actorId, device)
+  assertSeriesEditable(s, findTask(s, taskId))
+  return updateTask(taskId, { recurrence }, actorId, device)
 }
 
 export async function desmarcar(
@@ -119,7 +148,10 @@ export async function desmarcar(
   await uncompleteOccurrence(taskId, occurrenceDate, actorId, device)
 }
 
-/** Mueve solo esa ocurrencia; lanza 'locked' / 'already-occurs' / 'same-date' sin llamar a la RPC. */
+/**
+ * Mueve solo esa ocurrencia; lanza 'locked' / 'same-date' / 'past-target' / 'already-occurs'
+ * sin llamar a la RPC.
+ */
 export async function mover(
   taskId: string,
   originalDate: PlainDate,
@@ -132,6 +164,9 @@ export async function mover(
   if (!task) throw new Error('task-not-found')
   // Una ocurrencia cuya ventana de marcar cerró no se mueve (si no, se adelantaría y se marcaría sin «tarde»).
   if (!markWindow(s, taskId, originalDate).ok) throw new Error('locked')
+  // Y no se mueve a un día cuya ventana ya cerró: quedaría atrapada como no hecha.
+  const current = s.overrides.find((ov) => ov.taskId === taskId && ov.occurrenceDate === originalDate)?.movedTo ?? originalDate
+  if (target !== current && !dayWindow(s, target).ok) throw new Error('past-target')
   await moveOccurrence(task, s.overrides, originalDate, target, actorId, device)
 }
 
@@ -141,7 +176,10 @@ export async function borrarOcurrencia(
   actorId: string,
   device: Device,
 ) {
-  await assertFamilyMember(actorId)
+  const s = await assertFamilyMember(actorId)
+  findTask(s, taskId)
+  // "Solo esta" sigue la misma ventana que marcar: lo vencido no se borra (sí se puede excusar).
+  if (!markWindow(s, taskId, occurrenceDate).ok) throw new Error('locked')
   await deleteOccurrence(taskId, occurrenceDate, actorId, device)
 }
 

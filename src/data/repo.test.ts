@@ -1,7 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeFakeClient } from '../test/fakeClient'
 import { task, testSnapshot } from '../test/factories'
-import { asignar, completar, crearTarea, cumplimiento, tareasDeHoy } from './actions'
+import {
+  asignar,
+  borrarOcurrencia,
+  cambiarCuandoToca,
+  completar,
+  crearTarea,
+  cumplimiento,
+  mover,
+  renombrar,
+  tareasDeHoy,
+} from './actions'
 import { setSnapshotSourceForTests } from './actions'
 import { setClientForTests } from './client'
 import {
@@ -11,6 +21,7 @@ import {
   excuseOccurrence,
   loadEvents,
   loadFamilySnapshot,
+  loadTaskHistory,
   logInteraction,
   moveOccurrence,
   uncompleteOccurrence,
@@ -155,6 +166,45 @@ describe('otras acciones', () => {
         due_date: '2026-10-28',
       },
     })
+  })
+
+  test('mover a un día cuya ventana cerró falla con past-target y no llama a la RPC', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T15:30:00Z')) // 10:30 a. m.: ayer ya cerró
+    await expect(mover('t-hoy-de-Sol', '2026-10-27', '2026-10-26', 'm-Ana', 'wall')).rejects.toThrow('past-target')
+    await expect(mover('t-hoy-de-Sol', '2026-10-27', '2026-10-20', 'm-Ana', 'wall')).rejects.toThrow('past-target')
+    expect(fake.rpcCalls('rpc_move')).toEqual([])
+    vi.setSystemTime(new Date('2026-10-27T14:00:00Z')) // 9:00 a. m.: ayer sigue abierto
+    await mover('t-hoy-de-Sol', '2026-10-27', '2026-10-26', 'm-Ana', 'wall')
+    expect(fake.rpcCalls('rpc_move')).toHaveLength(1)
+  })
+
+  test('borrar «solo esta» sigue la ventana de marcar', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T15:30:00Z')) // 10:30 a. m.
+    await expect(borrarOcurrencia('t-ayer-de-Leo', '2026-10-26', 'm-Ana', 'wall')).rejects.toThrow('locked')
+    expect(fake.rpcCalls('rpc_delete_occurrence')).toEqual([])
+    vi.setSystemTime(new Date('2026-10-27T14:00:00Z')) // 9:00 a. m.
+    await borrarOcurrencia('t-ayer-de-Leo', '2026-10-26', 'm-Ana', 'wall')
+    expect(fake.rpcCalls('rpc_delete_occurrence')).toHaveLength(1)
+  })
+
+  test('una de un día vencida no se reasigna ni se convierte; renombrar sí', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T15:30:00Z')) // 10:30 a. m.: el 26 ya cerró
+    await expect(asignar('t-ayer-de-Leo', 'm-Ana', 'm-Ana', 'wall')).rejects.toThrow('locked')
+    await expect(
+      cambiarCuandoToca('t-ayer-de-Leo', { kind: 'weekly', weekdays: [1], start: '2026-10-27', end: null }, 'm-Ana', 'wall'),
+    ).rejects.toThrow('locked')
+    expect(fake.rpcCalls('rpc_update_task')).toEqual([])
+    await renombrar('t-ayer-de-Leo', 'Otro nombre', 'm-Ana', 'wall')
+    expect(fake.rpcCalls('rpc_update_task')).toHaveLength(1)
+  })
+
+  test('asignar devuelve la tarea que lleva la serie (la copia si el servidor la partió)', async () => {
+    expect(await asignar('t-ana-diaria', 'm-Leo', 'm-Ana', 'wall')).toBe('t-ana-diaria')
+    fake.setRpcData('rpc_update_task', 't-copia')
+    expect(await asignar('t-ana-diaria', 'm-Leo', 'm-Ana', 'wall')).toBe('t-copia')
   })
 
   test('tareasDeHoy usa la fecha de la zona de la familia', async () => {
@@ -373,6 +423,24 @@ describe('repo', () => {
     expect(got).toHaveLength(1300)
     expect(got[0]).toMatchObject({ id: 1300, taskTitle: 'T1199' })
     expect(fake.ranges('task')).toHaveLength(2)
+  })
+
+  test('loadTaskHistory sigue a la serie de la que salió la tarea y no repite el corte', async () => {
+    fake.setTable('task', [
+      { id: 'viejo', title: 'Regar' },
+      { id: 'nuevo', title: 'Regar' },
+    ])
+    const e = (id: number, task_id: string, type: string, payload: Record<string, unknown> = {}) => ({
+      id, at: '2026-10-27T10:00:00Z', actor_id: 'm1', type, task_id, occurrence_date: null, device: 'wall', payload,
+    })
+    fake.setTable('event_log', [
+      e(1, 'viejo', 'created'),
+      e(2, 'viejo', 'completed', { late: false }),
+      e(3, 'viejo', 'recurrence_changed', { split_to: 'nuevo' }),
+      e(4, 'nuevo', 'assigned', { from: 'm1', to: 'm2', split_from: 'viejo' }),
+    ])
+    expect((await loadTaskHistory('nuevo')).map((x) => x.id)).toEqual([4, 2, 1])
+    expect((await loadTaskHistory('viejo')).map((x) => x.id)).toEqual([3, 2, 1])
   })
 
   test('loadEvents pasa los límites de tiempo a la consulta', async () => {

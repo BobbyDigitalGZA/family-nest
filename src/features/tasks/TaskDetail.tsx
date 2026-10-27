@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { asignar, cambiarCuandoToca, mover, renombrar } from '../../data/actions'
-import { loadEvents, type EventRow } from '../../data/repo'
+import { loadTaskHistory, type Device, type EventRow } from '../../data/repo'
+import { todayIn } from '../../domain/dates'
 import type { PlainDate, Recurrence } from '../../domain/types'
 import { t, type TKey } from '../../i18n/es'
 import { errorText } from '../auth/errors'
 import { Sheet } from '../../ui/Sheet'
+import { isLocked } from '../personal/dayData'
 import { DeleteChoice } from './DeleteChoice'
+import { followDetail } from './detailFollow'
 import { dateOfInstant, formatDate, formatInstant } from './format'
 import { eventText } from './history'
 import { RecurrenceFields } from './RecurrenceFields'
@@ -75,11 +78,16 @@ function DetailBody({
   const [eventsError, setEventsError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
   const [moving, setMoving] = useState(false)
+  const [splitNote, setSplitNote] = useState(false)
+
+  // Lo vencido no cambia: una de un día vencida no se reasigna ni se convierte, y su ocurrencia no se borra.
+  const locked = isLocked(snapshot, taskId, originalDate, new Date())
+  const seriesLocked = locked && task.recurrence.kind === 'once'
 
   useEffect(() => {
     if (!open) return
     let alive = true
-    loadEvents({ taskId }).then(
+    loadTaskHistory(taskId).then(
       (rows) => {
         if (alive) {
           setEvents(rows)
@@ -99,6 +107,23 @@ function DetailBody({
     const ok = await run(fn)
     if (ok) setVersion((v) => v + 1)
     return ok
+  }
+
+  /**
+   * Reasignar o cambiar cuándo toca devuelve la tarea que lleva la serie desde hoy. Si el servidor
+   * partió la serie y esta ocurrencia es de hoy en adelante, su fila nueva abre el detalle; si es
+   * del pasado, se queda en la tarea vieja y se avisa.
+   */
+  const editSeries = async (fn: (actorId: string, device: Device) => Promise<string>) => {
+    const outcome = { pastSplit: false }
+    await act(async (a, d) => {
+      const next = await fn(a, d)
+      if (next === taskId) return
+      // Antes de recargar: la fila nueva se monta con la recarga y ya debe encontrar el aviso.
+      if (originalDate >= todayIn(snapshot.family.timeZone, new Date())) followDetail(next, originalDate)
+      else outcome.pastSplit = true
+    })
+    if (outcome.pastSplit) setSplitNote(true)
   }
 
   const move = async () => {
@@ -121,7 +146,7 @@ function DetailBody({
       if (problem) return setInvalid(problem)
       recurrence = draftToRecurrence(draft)
     }
-    await act((actorId, device) => cambiarCuandoToca(taskId, recurrence, actorId, device))
+    await editSeries((actorId, device) => cambiarCuandoToca(taskId, recurrence, actorId, device))
   }
 
   const members = snapshot.members
@@ -136,6 +161,11 @@ function DetailBody({
     <>
       <Sheet open={open} onClose={onClose} title={task.title}>
         <h2 className="fn-title">{task.title}</h2>
+        {splitNote && (
+          <p role="status" className="tk-hint">
+            {t('splitNote')}
+          </p>
+        )}
         {(error || invalid) && (
           <p role="alert" className="fn-error">
             {invalid ? t(invalid) : error}
@@ -162,10 +192,10 @@ function DetailBody({
           <select
             id="td-who"
             value={task.assigneeId}
-            disabled={readOnly}
+            disabled={readOnly || seriesLocked}
             onChange={(e) => {
               const memberId = e.target.value // se lee ya: el control vuelve a su valor mientras se pregunta quién eres
-              void act((a, d) => asignar(taskId, memberId, a, d))
+              void editSeries((a, d) => asignar(taskId, memberId, a, d))
             }}
           >
             {members.map((m) => (
@@ -244,7 +274,7 @@ function DetailBody({
           ) : (
             <RecurrenceFields idPrefix="td" value={draft} onChange={setDraft} disabled={readOnly} />
           )}
-          <button type="button" className="fn-btn" disabled={readOnly} onClick={() => void saveWhen()}>
+          <button type="button" className="fn-btn" disabled={readOnly || seriesLocked} onClick={() => void saveWhen()}>
             {t('saveWhen')}
           </button>
         </fieldset>
@@ -268,7 +298,7 @@ function DetailBody({
         )}
 
         <div className="tk-actions">
-          <button type="button" className="fn-btn" disabled={readOnly} onClick={del.start}>
+          <button type="button" className="fn-btn" disabled={readOnly || seriesLocked} onClick={del.start}>
             {t('deleteLabel')}
           </button>
           <button type="button" className="fn-link" onClick={onClose}>

@@ -1,8 +1,9 @@
 import { useDraggable } from '@dnd-kit/core'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { completar, desmarcar } from '../../data/actions'
 import { t } from '../../i18n/es'
 import { Checkbox } from '../../ui/Checkbox'
+import { clearFollow, isFollowed } from '../tasks/detailFollow'
 import { TaskDetail } from '../tasks/TaskDetail'
 import { useTasksData } from '../tasks/tasksContext'
 import { useRunAction } from '../tasks/useRunAction'
@@ -15,8 +16,9 @@ import { dragId, type DayItem } from './dayData'
 export function DayChip({ item }: { item: DayItem }) {
   const { readOnly } = useTasksData()
   const { run, error } = useRunAction()
-  const [open, setOpen] = useState(false)
   const { task, occurrence, state, locked } = item
+  const [open, setOpen] = useState(() => isFollowed(task.id, occurrence.originalDate))
+  useEffect(() => clearFollow(task.id, occurrence.originalDate), [task.id, occurrence.originalDate])
   const done = state === 'done'
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: dragId(task.id, occurrence.originalDate),

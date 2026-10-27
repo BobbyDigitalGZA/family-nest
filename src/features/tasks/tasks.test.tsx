@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { cambiarCuandoToca, crearTarea, desmarcar, mover, setSnapshotSourceForTests } from '../../data/actions'
 import * as repo from '../../data/repo'
 import type { EventRow, FamilySnapshot } from '../../data/repo'
+import { occurrencesBetween } from '../../domain/recurrence'
 import type { Occurrence, Recurrence, Task } from '../../domain/types'
 import { member, task as makeTask, testFamily } from '../../test/factories'
 import { IdentityProvider } from '../identity/IdentityProvider'
@@ -23,6 +25,7 @@ vi.mock('../../data/repo', async (orig) => ({
   deleteOccurrence: vi.fn(),
   deleteSeriesFrom: vi.fn(),
   loadEvents: vi.fn(),
+  loadTaskHistory: vi.fn(),
 }))
 
 const TODAY = '2026-10-27' // martes
@@ -42,7 +45,8 @@ beforeEach(() => {
   events = []
   reload = vi.fn<() => void>()
   vi.mocked(repo.loadEvents).mockImplementation(() => Promise.resolve([...events]))
-  vi.mocked(repo.updateTask).mockImplementation((_id, patch, actorId) => {
+  vi.mocked(repo.loadTaskHistory).mockImplementation(() => Promise.resolve([...events]))
+  vi.mocked(repo.updateTask).mockImplementation((id, patch, actorId) => {
     const type = patch.title !== undefined ? 'renamed' : patch.assigneeId !== undefined ? 'assigned' : 'recurrence_changed'
     events.unshift({
       id: events.length + 1,
@@ -55,7 +59,7 @@ beforeEach(() => {
       device: 'wall',
       payload: { from: 'm1', to: patch.assigneeId ?? null },
     })
-    return Promise.resolve()
+    return Promise.resolve(id)
   })
 })
 afterEach(() => {
@@ -423,4 +427,73 @@ test('mover una ocurrencia con la ventana cerrada falla con locked y no llama al
   )
   await mover('t1', TODAY, '2026-10-29', 'm1', 'wall')
   expect(repo.moveOccurrence).toHaveBeenCalledTimes(1)
+})
+
+test('una de un día vencida: ✕, «Para quién», «Guardar cuándo toca» y Borrar deshabilitados', async () => {
+  const t = makeTask({ kind: 'once', date: '2026-10-25' })
+  renderRow(t, '2026-10-25')
+  expect(screen.getByRole('button', { name: 'Borrar' })).toBeDisabled()
+  await userEvent.click(screen.getByRole('button', { name: 'Sacar la basura' }))
+  const d = await screen.findByRole('dialog', { name: 'Sacar la basura' })
+  expect(within(d).getByLabelText('Para quién')).toBeDisabled()
+  expect(within(d).getByRole('button', { name: 'Guardar cuándo toca' })).toBeDisabled()
+  expect(within(d).getByRole('button', { name: 'Borrar' })).toBeDisabled()
+  expect(within(d).getByRole('button', { name: 'Guardar nombre' })).toBeInTheDocument()
+})
+
+test('una repetida vencida: la ✕ abre la elección, «Solo esta» deshabilitada y «Todas» no', async () => {
+  const t = makeTask({ kind: 'weekly', weekdays: [7], start: '2026-10-01', end: null })
+  renderRow(t, '2026-10-25')
+  await userEvent.click(screen.getByRole('button', { name: 'Borrar' }))
+  const d = await screen.findByRole('dialog', { name: 'Borrar tarea repetida' })
+  expect(within(d).getByRole('button', { name: 'Solo esta ocurrencia' })).toBeDisabled()
+  expect(within(d).getByRole('button', { name: 'Todas' })).toBeEnabled()
+})
+
+test('si el servidor parte la serie al reasignar, el detalle sigue a la tarea nueva', async () => {
+  const old = makeTask(weekly, { id: 't1', title: 'Regar' })
+  const before: FamilySnapshot = { family: testFamily, members, tasks: [old], overrides: [], completions: [] }
+  const after: FamilySnapshot = {
+    ...before,
+    tasks: [
+      { ...old, recurrence: { ...weekly, end: '2026-10-26' } },
+      { ...old, id: 't2', assigneeId: 'm2', recurrence: { ...weekly, start: TODAY } },
+    ],
+  }
+  setSnapshotSourceForTests(() => Promise.resolve(before))
+  vi.mocked(repo.updateTask).mockResolvedValue('t2')
+  function Harness() {
+    const [snap, setSnap] = useState(before)
+    return (
+      <IdentityProvider device="wall" members={members}>
+        <TasksProvider value={{ snapshot: snap, reload: () => setSnap(after), readOnly: false }}>
+          <ul>
+            {snap.tasks.flatMap((x) =>
+              occurrencesBetween(x, [], TODAY, TODAY).map((o) => (
+                <TaskRow key={`${x.id}:${o.originalDate}`} task={x} occurrence={o} />
+              )),
+            )}
+          </ul>
+        </TasksProvider>
+      </IdentityProvider>
+    )
+  }
+  render(<Harness />)
+  await userEvent.click(screen.getByRole('button', { name: 'Regar' }))
+  const d = await screen.findByRole('dialog', { name: 'Regar' })
+  await userEvent.selectOptions(within(d).getByLabelText('Para quién'), 'm2')
+  await pickActor('Ana')
+  await waitFor(() => expect(repo.updateTask).toHaveBeenCalledWith('t1', { assigneeId: 'm2' }, 'm1', 'wall'))
+  const again = await screen.findByRole('dialog', { name: 'Regar' })
+  await waitFor(() => expect(within(again).getByLabelText('Para quién')).toHaveValue('m2'))
+})
+
+test('si la ocurrencia abierta es del pasado, el detalle se queda y avisa que el cambio vale desde hoy', async () => {
+  const t = makeTask({ kind: 'weekly', weekdays: [1], start: '2026-10-01', end: null }, { title: 'Regar' })
+  vi.mocked(repo.updateTask).mockResolvedValue('t2')
+  setup(<TaskDetail taskId="t1" originalDate="2026-10-26" open onClose={() => {}} />, [t])
+  const d = await screen.findByRole('dialog', { name: 'Regar' })
+  await userEvent.selectOptions(within(d).getByLabelText('Para quién'), 'm2')
+  await pickActor('Ana')
+  expect(await within(d).findByText('El cambio vale desde hoy; lo anterior queda como estaba.')).toBeInTheDocument()
 })

@@ -22,7 +22,7 @@ import { t } from '../../i18n/es'
 import { useWallScaleFactor } from '../family/orientationContext'
 import { useRunAction } from '../tasks/useRunAction'
 import { useTasksData } from '../tasks/tasksContext'
-import { isLocked, parseDragId, parseDropId } from './dayData'
+import { isDayClosed, isLocked, parseDragId, parseDropId } from './dayData'
 import { formatDayMonth } from './format'
 
 const MESSAGE_MS = 6000
@@ -97,8 +97,11 @@ export function DragArea({ children }: { children: ReactNode }) {
       const target = parseDropId(over)
       const task = snapshot.tasks.find((x) => x.id === from?.taskId)
       if (!from || !target || !task) return null
-      if (isLocked(snapshot, task.id, from.originalDate, new Date())) return t('errLocked')
+      const now = new Date()
+      if (isLocked(snapshot, task.id, from.originalDate, now)) return t('errLocked')
       const check = canMoveOccurrence(task, snapshot.overrides, from.originalDate, target)
+      if (!check.ok && check.reason === 'same-date') return null
+      if (isDayClosed(snapshot, target, now)) return t('errPastTarget')
       return !check.ok && check.reason === 'already-occurs' ? t('moveAlreadyOccurs') : null
     },
     [snapshot],

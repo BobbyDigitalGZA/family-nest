@@ -300,6 +300,15 @@ test('una ocurrencia bloqueada no tiene asa ni se mueve, y se avisa', async () =
   expect(await screen.findByTestId('move-status')).toHaveTextContent('Ya pasó el plazo para marcar esta tarea.')
 })
 
+test('soltar en un día cuya ventana cerró no la mueve y avisa', async () => {
+  const snapshot = fixtureWeek()
+  renderPersonal(snapshot)
+  await openTab('Semana')
+  dropOccurrence(snapshot, 'Hacer la tarea', TODAY, '2026-10-26') // ayer, pasadas las 10:00 a. m.
+  expect(repo.moveOccurrence).not.toHaveBeenCalled()
+  expect(await screen.findByTestId('move-status')).toHaveTextContent('No se puede mover a un día pasado.')
+})
+
 test('el candado de las 10:00 a. m. cambia con el reloj sin otro motivo para dibujar', async () => {
   vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
   vi.setSystemTime(new Date('2026-10-27T14:59:00Z')) // 9:59 a. m. en la zona de la familia

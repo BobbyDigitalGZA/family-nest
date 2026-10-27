@@ -13,6 +13,7 @@ const BY_CODE: [string, TKey][] = [
   ['not-an-occurrence', 'errNotOccurrence'],
   ['already-occurs', 'errAlreadyOccurs'],
   ['same-date', 'errSameDate'],
+  ['past-target', 'errPastTarget'],
   ['move-', 'errMove'],
   ['not-a-member', 'errNotMember'],
   ['task-not-found', 'errTaskNotFound'],

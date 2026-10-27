@@ -66,10 +66,15 @@ export function parseDropId(id: string | number): PlainDate | null {
   return s.startsWith('day:') ? s.slice(4) : null
 }
 
+/** La ventana de marcar de ese día ya cerró (antes de ayer, o ayer pasado el corte). */
+export function isDayClosed(snapshot: FamilySnapshot, day: PlainDate, now: Date): boolean {
+  const tz = snapshot.family.timeZone
+  return !canMarkDone(day, todayIn(tz, now), localTimeIn(tz, now), snapshot.family.lateMarkUntil).ok
+}
+
 /** La ventana de marcar de la ocurrencia (por su día efectivo) ya cerró. */
 export function isLocked(snapshot: FamilySnapshot, taskId: string, originalDate: PlainDate, now: Date): boolean {
-  const tz = snapshot.family.timeZone
   const effective =
     snapshot.overrides.find((o) => o.taskId === taskId && o.occurrenceDate === originalDate)?.movedTo ?? originalDate
-  return !canMarkDone(effective, todayIn(tz, now), localTimeIn(tz, now), snapshot.family.lateMarkUntil).ok
+  return isDayClosed(snapshot, effective, now)
 }

@@ -143,6 +143,25 @@ export async function loadEvents(filter?: {
   })
 }
 
+/**
+ * History of a task, following the series it was split from (payload.split_from). The cut
+ * event of each predecessor (payload.split_to) is left out: the split shows once, on the copy.
+ */
+export async function loadTaskHistory(taskId: string): Promise<EventRow[]> {
+  const out: EventRow[] = []
+  const seen = new Set<string>()
+  let next: string | null = taskId
+  while (next !== null && !seen.has(next) && seen.size < 20) {
+    const current: string = next
+    seen.add(current)
+    const rows = await loadEvents({ taskId: current })
+    out.push(...(current === taskId ? rows : rows.filter((e) => e.payload.split_to === undefined)))
+    const from = rows.find((e) => typeof e.payload.split_from === 'string')?.payload.split_from
+    next = typeof from === 'string' ? from : null
+  }
+  return out.sort((a, b) => b.id - a.id)
+}
+
 async function call(fn: string, args: Record<string, unknown>): Promise<void> {
   unwrap(await getClient().rpc(fn, args))
 }
@@ -162,17 +181,21 @@ export function createTask(input: NewTaskInput, actorId: string, device: Device)
   return call('rpc_create_task', { p_task: taskPayload(input), ...who(actorId, device) })
 }
 
-export function updateTask(
+/** Devuelve el id de la tarea que lleva la serie desde hoy (otro si el servidor la partió). */
+export async function updateTask(
   id: string,
   patch: Partial<NewTaskInput>,
   actorId: string,
   device: Device,
-) {
-  return call('rpc_update_task', {
-    p_task_id: id,
-    p_patch: taskPayload(patch),
-    ...who(actorId, device),
-  })
+): Promise<string> {
+  const data = unwrap(
+    await getClient().rpc('rpc_update_task', {
+      p_task_id: id,
+      p_patch: taskPayload(patch),
+      ...who(actorId, device),
+    }),
+  )
+  return typeof data === 'string' && data !== '' ? data : id
 }
 
 export function completeOccurrence(
