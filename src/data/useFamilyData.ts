@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { subscribeFamily } from './realtime'
 import { loadFamilySnapshot, type FamilySnapshot } from './repo'
 
@@ -24,22 +24,37 @@ export function useFamilyData() {
   const [snapshot, setSnapshot] = useState<FamilySnapshot | null>(null)
   const [error, setError] = useState<Error | null>(null)
 
-  const reload = useCallback(
-    () =>
-      load().then(
-        (s) => {
-          setSnapshot(s)
-          setError(null)
-        },
-        (e: unknown) => setError(e instanceof Error ? e : new Error(String(e))),
-      ),
-    [],
-  )
+  // Reloads can overlap (an action, realtime, a rejoin): a response older than the last one
+  // applied is dropped, and nothing lands after unmount.
+  const latest = useRef(0)
+  const applied = useRef(0)
+  const mounted = useRef(true)
+
+  const reload = useCallback(() => {
+    const seq = ++latest.current
+    return load().then(
+      (s) => {
+        if (!mounted.current || seq < applied.current) return
+        applied.current = seq
+        setSnapshot(s)
+        setError(null)
+      },
+      (e: unknown) => {
+        if (!mounted.current || seq < applied.current) return
+        applied.current = seq
+        setError(e instanceof Error ? e : new Error(String(e)))
+      },
+    )
+  }, [])
 
   useEffect(() => {
+    mounted.current = true
     void reload()
-    if (demoSize() !== null) return
-    return subscribeFamily(() => void reload())
+    const off = demoSize() === null ? subscribeFamily(() => void reload()) : null
+    return () => {
+      mounted.current = false
+      off?.()
+    }
   }, [reload])
 
   return { snapshot, error, loading: snapshot === null && error === null, reload }

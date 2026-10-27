@@ -18,3 +18,9 @@
 .fn-error { color: var(--color-texto); background: var(--primitive-color-pink-base); border-radius: var(--primitive-radius-fila); padding: 8px 12px; margin: 0 0 12px; }
 .fn-member { display: grid; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--primitive-color-arcilla-900); }
 .fn-code { font-size: var(--primitive-fontSize-2xl); letter-spacing: .2em; font-weight: 600; }
+.fn-banner {
+  position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px);
+  padding: 6px 8px 6px 14px; border-radius: var(--chip-radius); color: var(--color-texto);
+  background: var(--primitive-color-pink-base); box-shadow: var(--primitive-shadow-elevar-1);
+}

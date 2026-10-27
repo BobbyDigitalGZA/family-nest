@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { setAuthForTests, setClientForTests, type AuthLike } from '../../data/client'
 import { makeFakeClient } from '../../test/fakeClient'
@@ -70,6 +70,34 @@ test('con familia y sin miembro se abre Claim, con la opción de la pantalla de 
   expect(
     await screen.findByRole('heading', { name: 'Esta es la pantalla de la casa' }),
   ).toBeInTheDocument()
+})
+
+test('con datos ya cargados, un fallo al recargar no tapa la app: aviso discreto y reintento', async () => {
+  setAuthForTests(fakeAuth())
+  fake.setTable('family', [{ id: 'f1', name: 'F', time_zone: 'America/Lima', late_mark_until: '10:00:00' }])
+  fake.setTable('member', [{ id: 'm1', family_id: 'f1', nickname: 'Ana', color: 'blue', sort_order: 0, auth_user_id: 'u1', active: true }])
+  for (const tb of ['task', 'occurrence_override', 'completion']) fake.setTable(tb, [])
+  render(<AuthGate><p>contenido</p></AuthGate>)
+  expect(await screen.findByText('contenido')).toBeInTheDocument()
+  fake.failReads('network down')
+  await act(async () => fake.emit('task'))
+  const banner = await screen.findByTestId('sync-banner')
+  expect(banner).toHaveAttribute('role', 'status')
+  expect(banner).toHaveTextContent('No pudimos actualizar los datos')
+  expect(screen.getByText('contenido')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).toBeNull()
+  fake.failReads(null)
+  await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+  await vi.waitFor(() => expect(screen.queryByTestId('sync-banner')).toBeNull())
+  expect(screen.getByText('contenido')).toBeInTheDocument()
+})
+
+test('sin datos todavía, un fallo de carga sí bloquea con reintento', async () => {
+  setAuthForTests(fakeAuth())
+  fake.failReads('network down')
+  render(<AuthGate><p>contenido</p></AuthGate>)
+  expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar los datos de la familia.')
+  expect(screen.queryByText('contenido')).toBeNull()
 })
 
 test('si getSession falla se avisa en español y se puede reintentar', async () => {

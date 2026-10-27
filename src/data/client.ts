@@ -24,7 +24,8 @@ export interface ChannelLike {
     filter: { event: '*'; schema: 'public'; table: string },
     cb: () => void,
   ): ChannelLike
-  subscribe(): unknown
+  /** status: 'SUBSCRIBED' (also on every rejoin) | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'. */
+  subscribe(cb?: (status: string, err?: Error) => void): unknown
 }
 
 /** The slice of the Supabase client the app uses; tests inject a fake. */

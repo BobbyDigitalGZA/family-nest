@@ -13,11 +13,13 @@ export function makeFakeClient() {
   const listeners = new Map<string, Set<Listener>>()
   const inserted: { table: string; row: Row }[] = []
   const names: string[] = []
+  const channels: Set<(status: string) => void>[] = []
   const updated: { table: string; values: Row; filters: Row }[] = []
   const bounds: { table: string; op: string; col: string; val: string }[] = []
   const rpcData = new Map<string, unknown>()
   const ranges: { table: string; from: number; to: number }[] = []
   let rpcError: string | null = null
+  let readError: string | null = null
 
   const client: DataClient = {
     rpc(fn, args = {}) {
@@ -65,7 +67,10 @@ export function makeFakeClient() {
             return 0
           })
           const sliced = span ? sorted.slice(span[0], span[1] + 1) : sorted
-          return Promise.resolve({ data: sliced.slice(0, MAX_ROWS), error: null } as QueryResult).then(ok, bad)
+          const res: QueryResult = readError
+            ? { data: null, error: { message: readError } }
+            : { data: sliced.slice(0, MAX_ROWS), error: null }
+          return Promise.resolve(res).then(ok, bad)
         },
       }
       return {
@@ -105,6 +110,8 @@ export function makeFakeClient() {
     channel(name) {
       names.push(name)
       const mine: { table: string; cb: Listener }[] = []
+      const statusListeners = new Set<(status: string) => void>()
+      channels.push(statusListeners)
       const ch = {
         on(_t: 'postgres_changes', f: { table: string }, cb: Listener) {
           mine.push({ table: f.table, cb })
@@ -113,16 +120,19 @@ export function makeFakeClient() {
           listeners.set(f.table, set)
           return ch
         },
-        subscribe() {
+        subscribe(cb?: (status: string) => void) {
+          if (cb) statusListeners.add(cb)
           return ch
         },
+        _status: () => statusListeners,
         _mine: mine,
       }
       return ch
     },
     removeChannel(ch) {
-      const mine = (ch as unknown as { _mine: { table: string; cb: Listener }[] })._mine
-      for (const m of mine) listeners.get(m.table)?.delete(m.cb)
+      const c = ch as unknown as { _mine: { table: string; cb: Listener }[]; _status: () => Set<unknown> }
+      for (const m of c._mine) listeners.get(m.table)?.delete(m.cb)
+      c._status().clear()
       return Promise.resolve('ok')
     },
   }
@@ -138,6 +148,10 @@ export function makeFakeClient() {
     channelNames: () => [...names],
     setTable: (name: string, rows: Row[]) => void tables.set(name, rows),
     failRpc: (message: string) => void (rpcError = message),
+    /** Every select fails with this message (null: reads work again). */
+    failReads: (message: string | null) => void (readError = message),
+    /** Reports a channel status (SUBSCRIBED, CHANNEL_ERROR, ...) to every live channel. */
+    setStatus: (status: string) => channels.forEach((set) => set.forEach((cb) => cb(status))),
     emit: (table: string) => listeners.get(table)?.forEach((cb) => cb()),
     listenerCount: () => [...listeners.values()].reduce((n, s) => n + s.size, 0),
   }

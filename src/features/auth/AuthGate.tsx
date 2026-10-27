@@ -65,8 +65,9 @@ function Signed({ userId, children }: { userId: string; children: ReactNode }) {
   }, [ownId])
 
   if (loading) return <p className="fn-screen">{t('loading')}</p>
-  if (error && error.message === 'family-not-found') return <Onboarding onDone={() => void reload()} />
-  if (error || !snapshot)
+  if (!snapshot && error?.message === 'family-not-found') return <Onboarding onDone={() => void reload()} />
+  // Sin datos todavía, el error bloquea; con datos, se sigue mostrando lo último y un aviso discreto.
+  if (!snapshot)
     return (
       <main className="fn-screen">
         <Panel>
@@ -86,6 +87,14 @@ function Signed({ userId, children }: { userId: string; children: ReactNode }) {
       memberId={own?.id ?? null}
       members={snapshot.members}
     >
+      {error && (
+        <div role="status" className="fn-banner" data-testid="sync-banner">
+          <span>{t('syncError')}</span>
+          <button type="button" className="fn-link" onClick={() => void reload()}>
+            {t('retry')}
+          </button>
+        </div>
+      )}
       <TasksProvider value={{ snapshot, reload, readOnly: isDemoMode() }}>{children}</TasksProvider>
     </IdentityProvider>
   )

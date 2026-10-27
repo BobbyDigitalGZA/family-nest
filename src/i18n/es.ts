@@ -58,6 +58,7 @@ export const es = {
   wallLabelLabel: 'Nombre de la pantalla (opcional)',
   wallRegister: 'Registrar pantalla',
   loadError: 'No pudimos cargar los datos de la familia.',
+  syncError: 'No pudimos actualizar los datos; lo que ves puede no estar al día.',
   errNotAuthenticated: 'Tu sesión venció. Inicia sesión de nuevo.',
   errFamilyExists: 'Ya hay una familia configurada. Únete con su código.',
   errInvalidTimeZone: 'La zona horaria no es válida.',
