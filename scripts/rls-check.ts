@@ -204,6 +204,26 @@ async function main(): Promise<void> {
     )
   })
 
+  await check('list_claimable_members: solo apodos libres del código; código malo vacío; anon no puede', async () => {
+    const free = await must(userD.client.rpc('list_claimable_members', { p_code: A.code }), 'list A')
+    const ids = (free as { id: string }[]).map((r) => r.id)
+    expect(
+      ids.length === 2 && ids.includes(A.members[1]!) && ids.includes(A.members[2]!) && !ids.includes(A.members[0]!),
+      `lista de A: ${ids.length}`,
+    )
+    const lower = await must(userD.client.rpc('list_claimable_members', { p_code: A.code.toLowerCase() }), 'list lower')
+    expect((lower as unknown[]).length === 2, 'el código no ignora mayúsculas')
+    const bad = await must(userD.client.rpc('list_claimable_members', { p_code: 'NOPE00' }), 'list bad')
+    expect((bad as unknown[]).length === 0, 'código malo devolvió filas')
+    const other = await must(userD.client.rpc('list_claimable_members', { p_code: B.code }), 'list B')
+    expect(
+      (other as { id: string }[]).every((r) => B.members.includes(r.id)),
+      'el código de B mostró miembros de A',
+    )
+    const anon = createClient(url!, publishable!, opts)
+    expect(denied((await anon.rpc('list_claimable_members', { p_code: A.code })).error), 'anon pudo listar')
+  })
+
   await check('claim_member: código malo falla; bueno liga; no se reclama dos veces', async () => {
     const target = A.members[1]!
     const bad = await userC.client.rpc('claim_member', { p_member: target, p_code: 'NOPE00' })

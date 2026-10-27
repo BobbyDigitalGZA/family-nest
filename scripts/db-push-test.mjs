@@ -1,6 +1,7 @@
 // Empuja las migraciones (y la semilla inventada) al proyecto de PRUEBAS.
 // Lee .env.test.local; la URL de conexión se arma en memoria y nunca se imprime ni se guarda.
-// Uso: node scripts/db-push-test.mjs [reset]  (reset: recrea la base de PRUEBAS y vuelve a sembrar)
+// Uso: node scripts/db-push-test.mjs [reset | reset-noseed]
+//   reset: recrea la base de PRUEBAS y vuelve a sembrar; reset-noseed: la recrea vacía (para probar la primera configuración).
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 
@@ -15,8 +16,11 @@ const dbUrl = `postgresql://postgres.${ref}:${encodeURIComponent(password)}@aws-
 const npxCli = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js')
 const res = spawnSync(
   process.execPath,
-  process.argv[2] === 'reset'
-    ? [npxCli, 'supabase', 'db', 'reset', '--db-url', dbUrl, '--yes']
+  process.argv[2] === 'reset' || process.argv[2] === 'reset-noseed'
+    ? [
+        npxCli, 'supabase', 'db', 'reset', '--db-url', dbUrl, '--yes',
+        ...(process.argv[2] === 'reset-noseed' ? ['--no-seed'] : []),
+      ]
     : [npxCli, 'supabase', 'db', 'push', '--db-url', dbUrl, '--include-seed', ...process.argv.slice(2)],
   { stdio: ['inherit', 'pipe', 'pipe'], encoding: 'utf8' },
 )
