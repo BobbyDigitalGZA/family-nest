@@ -370,8 +370,6 @@ declare
   v_uid uuid := auth.uid();
   v_family uuid;
   v_code text;
-  v_first uuid;
-  v_id uuid;
   m jsonb;
   i int := 0;
 begin
@@ -403,9 +401,7 @@ begin
       nullif(m ->> 'birthday', '')::date,
       i,
       case when i = 0 then v_uid else null end
-    )
-    returning id into v_id;
-    if i = 0 then v_first := v_id; end if;
+    );
     i := i + 1;
   end loop;
 

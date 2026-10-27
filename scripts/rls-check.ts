@@ -483,9 +483,17 @@ async function main(): Promise<void> {
     expect(!ok.error, `movida adelante bloqueada: ${ok.error?.message}`)
     const row = await must(admin.from('completion').select('late, occurrence_date').eq('task_id', later).single(), 'row')
     expect(row.late === false && row.occurrence_date === ymdIn(early, -3), 'late o clave incorrectos')
-    // Movida hacia atrás a hace 2 días: su día efectivo ya venció aunque el original sea hoy.
+    // Movida hacia atrás a hace 2 días (override sembrado: mover a un día vencido está bloqueado):
+    // su día efectivo ya venció aunque el original sea hoy.
     const earlier = await onceTask('movida-atras', ymdIn(early, 0))
-    expect(!(await mvTo(earlier, ymdIn(early, 0), ymdIn(early, -2))).error, 'mover atrás falló')
+    expect(denied((await mvTo(earlier, ymdIn(early, 0), ymdIn(early, -2))).error), 'mover a un día vencido pasó')
+    await must(
+      admin.from('occurrence_override').insert({
+        task_id: earlier, occurrence_date: ymdIn(early, 0), family_id: A.familyId,
+        moved_to: ymdIn(early, -2), moved_at: new Date().toISOString(), moved_by_id: actorA,
+      }),
+      'seed move back',
+    )
     expect(denied((await complete(earlier, ymdIn(early, 0))).error), 'movida atrás vencida pasó')
     await setZone('UTC')
   })
@@ -507,6 +515,179 @@ async function main(): Promise<void> {
     const today = await onceTask('mover-hoy', ymdIn(early, 0))
     expect(!(await mvTo(today, ymdIn(early, 0), ymdIn(early, 2))).error, 'mover hoy falló')
     expect((await overrides(today)) === 1, 'hoy no quedó movida')
+    await setZone('UTC')
+  })
+
+  await check('mover: el día destino debe tener la ventana abierta (past-target)', async () => {
+    const mvTo = (task: string, from: string, to: string) =>
+      a.rpc('rpc_move', { p_task_id: task, p_date: from, p_target: to, p_actor: actorA, p_device: 'phone' })
+    const overrides = async (task: string) =>
+      (await must(admin.from('occurrence_override').select('task_id').eq('task_id', task), 'ov')).length
+    await setZone(early)
+    const t1 = await onceTask('destino-antier', ymdIn(early, 0))
+    const r1 = await mvTo(t1, ymdIn(early, 0), ymdIn(early, -2))
+    expect(r1.error !== null && r1.error.message.includes('past-target'), `a hace dos días: ${r1.error?.message}`)
+    expect((await overrides(t1)) === 0, 'quedó un override pese al rechazo')
+    expect(!(await mvTo(t1, ymdIn(early, 0), ymdIn(early, -1))).error, 'a ayer antes del corte falló')
+    await setZone(lateZone)
+    const t2 = await onceTask('destino-ayer-tarde', ymdIn(lateZone, 0))
+    const r2 = await mvTo(t2, ymdIn(lateZone, 0), ymdIn(lateZone, -1))
+    expect(r2.error !== null && r2.error.message.includes('past-target'), `a ayer pasado el corte: ${r2.error?.message}`)
+    expect(!(await mvTo(t2, ymdIn(lateZone, 0), ymdIn(lateZone, 3))).error, 'a un día futuro falló')
+    await setZone('UTC')
+  })
+
+  await check('borrar una ocurrencia sigue la ventana de marcar; excusar después sigue permitido', async () => {
+    const delOcc = (task: string, date: string) =>
+      a.rpc('rpc_delete_occurrence', { p_task_id: task, p_date: date, p_actor: actorA, p_device: 'phone' })
+    const deleted = async (task: string) =>
+      (await must(admin.from('occurrence_override').select('deleted').eq('task_id', task), 'ov')).some((r) => r.deleted)
+    await setZone(lateZone)
+    const yLate = await onceTask('borrar-ayer-tarde', ymdIn(lateZone, -1))
+    const r1 = await delOcc(yLate, ymdIn(lateZone, -1))
+    expect(r1.error !== null && r1.error.message.includes('locked'), `ayer pasado el corte: ${r1.error?.message}`)
+    expect(!(await deleted(yLate)), 'se borró pese al bloqueo')
+    const ev = await must(admin.from('event_log').select('id').eq('task_id', yLate).eq('type', 'deleted_occurrence'), 'ev')
+    expect(ev.length === 0, 'quedó un evento de borrado bloqueado')
+    const ex = await a.rpc('rpc_excuse', { p_task_id: yLate, p_date: ymdIn(lateZone, -1), p_actor: actorA, p_device: 'phone' })
+    expect(!ex.error, `excusar una vencida falló: ${ex.error?.message}`)
+    await setZone(early)
+    const old = await onceTask('borrar-antier', ymdIn(early, -2))
+    expect(denied((await delOcc(old, ymdIn(early, -2))).error), 'borrar hace dos días pasó')
+    const y = await onceTask('borrar-ayer-temprano', ymdIn(early, -1))
+    expect(!(await delOcc(y, ymdIn(early, -1))).error, 'borrar ayer antes del corte falló')
+    const today = await onceTask('borrar-hoy', ymdIn(early, 0))
+    expect(!(await delOcc(today, ymdIn(early, 0))).error, 'borrar hoy falló')
+    expect(await deleted(today), 'hoy no quedó borrada')
+    const r2 = await delOcc(today, ymdIn(early, 1))
+    expect(r2.error !== null && r2.error.message.includes('not-an-occurrence'), `fecha que no ocurre: ${r2.error?.message}`)
+    await setZone('UTC')
+  })
+
+  await check('editar persona o repetición de una serie con pasado la parte: el pasado no cambia', async () => {
+    const today = ymdIn('UTC', 0)
+    const yesterday = ymdIn('UTC', -1)
+    const series = await must(
+      admin
+        .from('task')
+        .insert({
+          family_id: A.familyId, title: 'Serie con pasado', assignee_id: A.members[1], created_by_id: A.members[2],
+          is_household: true, rule: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7], start_date: ymdIn('UTC', -14),
+        })
+        .select('id, created_at')
+        .single(),
+      'insert series',
+    )
+    const old = series.id as string
+    const seedDone = (date: string) =>
+      must(
+        admin.from('completion').insert({
+          task_id: old, occurrence_date: date, family_id: A.familyId, completed_by_id: A.members[1], late: false,
+        }),
+        'seed done',
+      )
+    await seedDone(ymdIn('UTC', -3))
+    await seedDone(today)
+    await must(
+      admin.from('occurrence_override').insert({
+        task_id: old, occurrence_date: ymdIn('UTC', 2), family_id: A.familyId,
+        excused_by_id: actorA, excused_at: new Date().toISOString(),
+      }),
+      'seed excuse',
+    )
+    const up = (task: string, patch: Record<string, unknown>) =>
+      a.rpc('rpc_update_task', { p_task_id: task, p_patch: patch, p_actor: actorA, p_device: 'phone' })
+
+    // Renombrar nunca parte la serie.
+    const ren = await up(old, { title: 'Serie renombrada' })
+    expect(!ren.error && ren.data === old, `renombrar devolvió ${String(ren.data)} ${ren.error?.message}`)
+
+    const r = await up(old, { assignee_id: actorA })
+    expect(!r.error && typeof r.data === 'string' && r.data !== old, `reasignar no partió: ${r.error?.message}`)
+    const fresh = r.data as string
+    const o = await must(admin.from('task').select('*').eq('id', old).single(), 'old')
+    expect(
+      o.assignee_id === A.members[1] && o.end_date === yesterday && o.deleted_at === null,
+      'la serie vieja cambió de persona o no terminó ayer',
+    )
+    const n = await must(admin.from('task').select('*').eq('id', fresh).single(), 'new')
+    expect(
+      n.assignee_id === actorA && n.start_date === today && n.end_date === null && n.rule === 'weekly' &&
+        n.title === 'Serie renombrada' && n.is_household === true && n.created_by_id === A.members[2] &&
+        n.created_at === series.created_at,
+      'la copia no conserva título, «De la casa», creadora o fecha de creación',
+    )
+    const doneOld = await must(admin.from('completion').select('occurrence_date').eq('task_id', old), 'done old')
+    const doneNew = await must(admin.from('completion').select('occurrence_date').eq('task_id', fresh), 'done new')
+    expect(doneOld.length === 1 && doneOld[0]!.occurrence_date === ymdIn('UTC', -3), 'la marca pasada se movió')
+    expect(doneNew.length === 1 && doneNew[0]!.occurrence_date === today, 'la marca de hoy no siguió a la serie nueva')
+    const ovNew = await must(admin.from('occurrence_override').select('occurrence_date').eq('task_id', fresh), 'ov new')
+    expect(ovNew.length === 1 && ovNew[0]!.occurrence_date === ymdIn('UTC', 2), 'la excusa futura no siguió a la serie nueva')
+    const evOld = await must(
+      admin.from('event_log').select('payload').eq('task_id', old).eq('type', 'recurrence_changed'),
+      'ev old',
+    )
+    const evNew = await must(admin.from('event_log').select('type, payload').eq('task_id', fresh), 'ev new')
+    expect(
+      evOld.length === 1 && (evOld[0]!.payload as { split_to?: string }).split_to === fresh,
+      'la vieja no apunta a la nueva',
+    )
+    expect(
+      evNew.length === 1 && evNew[0]!.type === 'assigned' &&
+        (evNew[0]!.payload as { split_from?: string }).split_from === old,
+      'la nueva no tiene su evento de asignación con split_from',
+    )
+
+    // La serie nueva no tiene pasado: cambiar su repetición es en sitio.
+    const same = await up(fresh, {
+      rule: 'weekly', weekdays: [1, 3], start_date: today, end_date: null, due_date: null, month_day: null,
+    })
+    expect(!same.error && same.data === fresh, `sin pasado no debe partir: ${same.error?.message}`)
+
+    // Cambiar la repetición de una serie con pasado la parte; un inicio pasado se lleva a hoy.
+    const other = await must(
+      admin
+        .from('task')
+        .insert({
+          family_id: A.familyId, title: 'Otra serie', assignee_id: actorA, created_by_id: actorA,
+          rule: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7], start_date: ymdIn('UTC', -7),
+        })
+        .select('id')
+        .single(),
+      'insert other',
+    )
+    const conv = await up(other.id, {
+      rule: 'monthly', month_day: 15, start_date: ymdIn('UTC', -30), end_date: null, due_date: null, weekdays: null,
+    })
+    expect(!conv.error && conv.data !== other.id, `cambiar repetición no partió: ${conv.error?.message}`)
+    const c2 = await must(admin.from('task').select('rule, start_date, month_day').eq('id', conv.data as string).single(), 'conv')
+    expect(c2.rule === 'monthly' && c2.start_date === today && c2.month_day === 15, 'la copia no empieza hoy con la regla nueva')
+    const o2 = await must(admin.from('task').select('rule, end_date').eq('id', other.id).single(), 'other old')
+    expect(o2.rule === 'weekly' && o2.end_date === yesterday, 'la regla vieja cambió')
+
+    // Reasignar una serie que ya terminó (todo es pasado) se rechaza.
+    const ended = await up(old, { assignee_id: A.members[2] })
+    expect(ended.error !== null && ended.error.message.includes('locked'), `serie terminada: ${ended.error?.message}`)
+  })
+
+  await check('una tarea de un día vencida no se reasigna ni se convierte; renombrar sí', async () => {
+    await setZone(early)
+    const up = (task: string, patch: Record<string, unknown>) =>
+      a.rpc('rpc_update_task', { p_task_id: task, p_patch: patch, p_actor: actorA, p_device: 'phone' })
+    const old = await onceTask('un-dia-vencida', ymdIn(early, -2))
+    const r1 = await up(old, { assignee_id: A.members[1] })
+    expect(r1.error !== null && r1.error.message.includes('locked'), `reasignar vencida: ${r1.error?.message}`)
+    const r2 = await up(old, {
+      rule: 'weekly', weekdays: [1], start_date: ymdIn(early, 0), end_date: null, due_date: null, month_day: null,
+    })
+    expect(r2.error !== null && r2.error.message.includes('locked'), `convertir vencida: ${r2.error?.message}`)
+    const r3 = await up(old, { title: 'renombrada' })
+    expect(!r3.error && r3.data === old, `renombrar vencida falló: ${r3.error?.message}`)
+    const fresh = await onceTask('un-dia-hoy', ymdIn(early, 0))
+    const r4 = await up(fresh, { assignee_id: A.members[1] })
+    expect(!r4.error && r4.data === fresh, `reasignar la de hoy falló: ${r4.error?.message}`)
+    const row = await must(admin.from('task').select('assignee_id').eq('id', old).single(), 'row')
+    expect(row.assignee_id === actorA, 'la vencida cambió de persona')
     await setZone('UTC')
   })
 
