@@ -68,7 +68,7 @@ test('family: la hora de marcar tarde llega como HH:MM', () => {
   const f = familyFromRow({
     id: 'f1',
     name: 'X',
-    time_zone: 'America/Bogota',
+    time_zone: 'America/Lima',
     late_mark_until: '10:00:00',
   })
   expect(f.lateMarkUntil).toBe('10:00')

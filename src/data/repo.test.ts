@@ -158,7 +158,7 @@ describe('otras acciones', () => {
   })
 
   test('tareasDeHoy usa la fecha de la zona de la familia', async () => {
-    // 03:00Z del 28 es todavía 27 en Bogotá (UTC-5)
+    // 03:00Z del 28 es todavía 27 en Lima (UTC-5)
     const now = new Date('2026-10-28T03:00:00Z')
     expect((await tareasDeHoy('m-Sol', now)).map((x) => x.taskId)).toEqual(['t-hoy-de-Sol'])
     expect((await tareasDeHoy(null, now)).map((x) => x.taskId).sort()).toEqual([
@@ -269,7 +269,7 @@ describe('repo', () => {
 
   test('loadFamilySnapshot y loadEvents mapean filas', async () => {
     fake.setTable('family', [
-      { id: 'f1', name: 'F', time_zone: 'America/Bogota', late_mark_until: '10:00:00' },
+      { id: 'f1', name: 'F', time_zone: 'America/Lima', late_mark_until: '10:00:00' },
     ])
     fake.setTable('member', [
       { id: 'm1', family_id: 'f1', nickname: 'Ana', color: 'blue', sort_order: 1 },
@@ -313,7 +313,7 @@ describe('repo', () => {
       },
     ])
     const s = await loadFamilySnapshot()
-    expect(s.family.timeZone).toBe('America/Bogota')
+    expect(s.family.timeZone).toBe('America/Lima')
     expect(s.tasks[0]?.recurrence).toEqual({ kind: 'once', date: '2026-10-27' })
     const ev = await loadEvents({ type: 'completed' })
     expect(ev).toEqual([expect.objectContaining({ id: 2, taskTitle: 'X', actorId: 'm1' })])

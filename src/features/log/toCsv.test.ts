@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { ev, m } from '../../test/factories'
 import { toCsv, weeklySummary } from './toCsv'
 
-const TZ = 'America/Bogota'
+const TZ = 'America/Lima'
 
 test('CSV con apodo, hora local y comillas', () => {
   const csv = toCsv([ev({ at: '2026-10-28T01:05:00Z', actor: 'm1', type: 'moved', title: 'Platos, cena' })], [m('m1', 'Ana')], TZ)
@@ -41,7 +41,7 @@ describe('weeklySummary', () => {
     expect(weeklySummary(evs, '2026-10-26', TZ)).toEqual([{ memberId: 'm1', created: 0, assigned: 0, completed: 1, moved: 1 }])
   })
   test('la semana se cuenta en la zona de la familia (lunes a domingo)', () => {
-    // Lunes 26 00:30 en Bogotá = 05:30Z; domingo 25 23:30 en Bogotá = lunes 26 04:30Z.
+    // Lunes 26 00:30 en Lima = 05:30Z; domingo 25 23:30 en Lima = lunes 26 04:30Z.
     const evs = [
       ev({ at: '2026-10-26T04:30:00Z', actor: 'm1', type: 'created', title: 'a' }),
       ev({ at: '2026-10-26T05:30:00Z', actor: 'm1', type: 'created', title: 'b' }),

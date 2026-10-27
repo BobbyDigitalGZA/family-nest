@@ -18,7 +18,7 @@ const NICKNAMES = [
   'Beto',
 ]
 const COLORS = ['blue', 'pink', 'lilac', 'green']
-const TIME_ZONE = 'America/Bogota'
+const TIME_ZONE = 'America/Lima'
 
 export function demoSnapshot(size: number, now: Date = new Date()): FamilySnapshot {
   const n = Math.max(1, Math.min(size, NICKNAMES.length))

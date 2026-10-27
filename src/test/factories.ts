@@ -38,7 +38,7 @@ export function c(taskId: string, date: PlainDate): Completion {
 export const testFamily: Family = {
   id: 'f1',
   name: 'Familia de prueba',
-  timeZone: 'America/Bogota',
+  timeZone: 'America/Lima',
   lateMarkUntil: '10:00',
 }
 
