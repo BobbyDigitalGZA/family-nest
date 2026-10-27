@@ -137,7 +137,14 @@
   width: fit-content;
 }
 .pv-status[data-empty='true'] {
-  display: none;
+  /* Siempre en el árbol para que se anuncie; sin texto no ocupa lugar. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  box-shadow: none;
 }
 
 /* Chip de una ocurrencia (Semana y Mes). */

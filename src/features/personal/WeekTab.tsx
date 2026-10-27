@@ -3,6 +3,7 @@ import type { PlainDate } from '../../domain/types'
 import { t } from '../../i18n/es'
 import { useTasksData } from '../tasks/tasksContext'
 import { DayChip } from './DayChip'
+import { useNow } from './useNow'
 import { itemsByDay } from './dayData'
 import { DragArea } from './DragArea'
 import { DropDay } from './DropDay'
@@ -18,9 +19,10 @@ interface WeekTabProps {
 /** Siete columnas de lunes a domingo; las ocurrencias se arrastran de un día a otro. */
 export function WeekTab({ memberId, cursor, today }: WeekTabProps) {
   const { snapshot } = useTasksData()
+  const now = useNow()
   const start = weekStart(cursor)
   const days = daysBetween(start, addDays(start, 6))
-  const byDay = itemsByDay(snapshot, memberId, start, addDays(start, 6), new Date())
+  const byDay = itemsByDay(snapshot, memberId, start, addDays(start, 6), now)
   return (
     <DragArea>
       <div className="pv-week">

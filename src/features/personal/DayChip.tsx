@@ -20,7 +20,7 @@ export function DayChip({ item }: { item: DayItem }) {
   const done = state === 'done'
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: dragId(task.id, occurrence.originalDate),
-    disabled: readOnly,
+    disabled: readOnly || locked,
   })
 
   const toggle = () =>
@@ -31,6 +31,7 @@ export function DayChip({ item }: { item: DayItem }) {
     )
 
   return (
+    <>
     <li
       ref={setNodeRef}
       className="pv-chip"
@@ -48,7 +49,7 @@ export function DayChip({ item }: { item: DayItem }) {
       <button type="button" className="pv-chip-title" onClick={() => setOpen(true)}>
         {task.title}
       </button>
-      {!readOnly && (
+      {!readOnly && !locked && (
         <button
           type="button"
           className="pv-grip"
@@ -64,7 +65,9 @@ export function DayChip({ item }: { item: DayItem }) {
           {error}
         </span>
       )}
-      <TaskDetail taskId={task.id} originalDate={occurrence.originalDate} open={open} onClose={() => setOpen(false)} />
     </li>
+    {/* Fuera del <li>: los eventos de un portal suben por React hasta quien lo montó, y el <li> arrastra. */}
+    <TaskDetail taskId={task.id} originalDate={occurrence.originalDate} open={open} onClose={() => setOpen(false)} />
+    </>
   )
 }

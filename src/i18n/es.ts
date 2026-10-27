@@ -164,7 +164,7 @@ export const es = {
   moreCount: '+{n}',
   moveHandle: 'Mover: {title}',
   moveAlreadyOccurs: 'Ese día ya tiene esta tarea',
-  openDay: '{day}',
+  dotsLabelOne: '1 tarea',
   dotsLabel: '{n} tareas',
   dragStartMsg: 'Levantaste «{title}». Usa las flechas para elegir un día y Espacio para soltarla.',
   dragOverMsg: '«{title}» está sobre el {date}.',

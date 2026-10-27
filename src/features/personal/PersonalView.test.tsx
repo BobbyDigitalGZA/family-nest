@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -271,4 +271,67 @@ test('volver a la familia avisa a quien llama', async () => {
   renderPersonal(fixtureWeek(), false, onBack)
   await userEvent.click(screen.getByRole('button', { name: 'Volver a la familia' }))
   expect(onBack).toHaveBeenCalled()
+})
+
+test('apretar y mover el ratón dentro del detalle abierto no arrastra la tarea de atrás', async () => {
+  renderPersonal(fixtureWeek())
+  await openTab('Semana')
+  await userEvent.click(screen.getByRole('button', { name: 'Hacer la tarea' }))
+  const dialog = await screen.findByRole('dialog')
+  const field = within(dialog).getAllByRole('textbox')[0] as HTMLElement
+  fireEvent.mouseDown(field, { button: 0, clientX: 10, clientY: 10 })
+  fireEvent.pointerDown(field, { button: 0, clientX: 10, clientY: 10 })
+  fireEvent.touchStart(field, { touches: [{ clientX: 10, clientY: 10 }] })
+  fireEvent.mouseMove(document, { clientX: 90, clientY: 90 })
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 60)) // el arrastre de dnd-kit arranca de forma asíncrona
+  })
+  expect(document.querySelector('.pv-overlay')).toBeNull()
+  expect(repo.moveOccurrence).not.toHaveBeenCalled()
+})
+
+test('una ocurrencia bloqueada no tiene asa ni se mueve, y se avisa', async () => {
+  const snapshot = fixtureWeek()
+  renderPersonal(snapshot)
+  await openTab('Semana')
+  expect(screen.queryByRole('button', { name: 'Mover: Regar plantas' })).not.toBeInTheDocument()
+  dropOccurrence(snapshot, 'Regar plantas', '2026-10-26', TODAY)
+  expect(repo.moveOccurrence).not.toHaveBeenCalled()
+  expect(await screen.findByTestId('move-status')).toHaveTextContent('Ya pasó el plazo para marcar esta tarea.')
+})
+
+test('el candado de las 10:00 a. m. cambia con el reloj sin otro motivo para dibujar', async () => {
+  vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+  vi.setSystemTime(new Date('2026-10-27T14:59:00Z')) // 9:59 a. m. en la zona de la familia
+  renderPersonal(fixtureWeek())
+  fireEvent.click(screen.getByRole('tab', { name: 'Semana' }))
+  expect(screen.getByRole('checkbox', { name: 'Cumplir: Regar plantas' })).toBeEnabled()
+  act(() => {
+    vi.advanceTimersByTime(61_000) // 10:00 a. m.
+  })
+  expect(screen.getByRole('checkbox', { name: 'Cumplir: Regar plantas' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Mover: Regar plantas' })).not.toBeInTheDocument()
+})
+
+test('Nueva tarea abre en hoy, o en el primer día visto si todo el rango es futuro', async () => {
+  renderPersonal(fixtureWeek())
+  await openTab('Mes')
+  await userEvent.click(screen.getByRole('button', { name: 'Nueva tarea' }))
+  expect(screen.getByRole('button', { name: 'Hoy', pressed: true })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Nueva tarea' }))
+  expect(screen.getByLabelText('Fecha')).toHaveValue('2026-11-01')
+})
+
+// Va al final: tras soltar, dnd-kit deja un rato un freno al clic que ensucia las pruebas siguientes.
+test('control: apretar y mover sobre la tarea sí inicia el arrastre', async () => {
+  renderPersonal(fixtureWeek())
+  await openTab('Semana')
+  const chip = screen.getByRole('button', { name: 'Hacer la tarea' }).closest('li') as HTMLElement
+  fireEvent.mouseDown(chip, { button: 0, clientX: 10, clientY: 10 })
+  fireEvent.mouseMove(document, { clientX: 90, clientY: 90 })
+  await waitFor(() => expect(document.querySelector('.pv-overlay')).not.toBeNull())
+  fireEvent.mouseUp(document)
+  await waitFor(() => expect(document.querySelector('.pv-overlay')).toBeNull())
 })

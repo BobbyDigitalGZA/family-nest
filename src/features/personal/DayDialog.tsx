@@ -5,6 +5,7 @@ import { Sheet } from '../../ui/Sheet'
 import { NewTaskSheet } from '../tasks/NewTaskSheet'
 import { TaskRow } from '../tasks/TaskRow'
 import { useTasksData } from '../tasks/tasksContext'
+import { useNow } from './useNow'
 import { itemsByDay } from './dayData'
 import { formatDayLong } from './format'
 
@@ -18,8 +19,9 @@ interface DayDialogProps {
 /** Todo un día: desde aquí se cumple, se abre el detalle o se crea una tarea para esa fecha. */
 export function DayDialog({ date, memberId, open, onClose }: DayDialogProps) {
   const { snapshot, readOnly } = useTasksData()
+  const now = useNow()
   const [creating, setCreating] = useState(false)
-  const items = itemsByDay(snapshot, memberId, date, date, new Date()).get(date) ?? []
+  const items = itemsByDay(snapshot, memberId, date, date, now).get(date) ?? []
   const title = formatDayLong(date)
   return (
     <>

@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { mover } from '../../data/actions'
 import { canMoveOccurrence } from '../../domain/recurrence'
@@ -22,7 +22,7 @@ import { t } from '../../i18n/es'
 import { useWallScaleFactor } from '../family/orientationContext'
 import { useRunAction } from '../tasks/useRunAction'
 import { useTasksData } from '../tasks/tasksContext'
-import { parseDragId, parseDropId } from './dayData'
+import { isLocked, parseDragId, parseDropId } from './dayData'
 import { formatDayMonth } from './format'
 
 const MESSAGE_MS = 6000
@@ -90,6 +90,20 @@ export function DragArea({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id)
   }, [message])
 
+  /** Por qué no se puede soltar ahí (null si se puede). Lo usan el aviso en pantalla y el lector de pantalla. */
+  const refusal = useCallback(
+    (id: string | number, over: string | number): string | null => {
+      const from = parseDragId(id)
+      const target = parseDropId(over)
+      const task = snapshot.tasks.find((x) => x.id === from?.taskId)
+      if (!from || !target || !task) return null
+      if (isLocked(snapshot, task.id, from.originalDate, new Date())) return t('errLocked')
+      const check = canMoveOccurrence(task, snapshot.overrides, from.originalDate, target)
+      return !check.ok && check.reason === 'already-occurs' ? t('moveAlreadyOccurs') : null
+    },
+    [snapshot],
+  )
+
   const announcements: Announcements = useMemo(() => {
     const titleOf = (id: string | number): string => {
       const from = parseDragId(id)
@@ -104,10 +118,12 @@ export function DragArea({ children }: { children: ReactNode }) {
       onDragOver: ({ active, over }) =>
         over ? t('dragOverMsg', { title: titleOf(active.id), date: dateOf(over.id) }) : undefined,
       onDragEnd: ({ active, over }) =>
-        over ? t('dragEndMsg', { title: titleOf(active.id), date: dateOf(over.id) }) : undefined,
+        over
+          ? (refusal(active.id, over.id) ?? t('dragEndMsg', { title: titleOf(active.id), date: dateOf(over.id) }))
+          : undefined,
       onDragCancel: ({ active }) => t('dragCancelMsg', { title: titleOf(active.id) }),
     }
-  }, [snapshot.tasks])
+  }, [snapshot.tasks, refusal])
 
   const activeTitle = useMemo(() => {
     const from = activeId ? parseDragId(activeId) : null
@@ -126,11 +142,14 @@ export function DragArea({ children }: { children: ReactNode }) {
     if (!from || !target || readOnly) return
     const task = snapshot.tasks.find((x) => x.id === from.taskId)
     if (!task) return
-    const check = canMoveOccurrence(task, snapshot.overrides, from.originalDate, target)
-    if (!check.ok) {
-      setMessage(check.reason === 'already-occurs' ? t('moveAlreadyOccurs') : null)
+    const refused = refusal(e.active.id, e.over?.id ?? '')
+    if (refused) {
+      setMessage(refused)
       return
     }
+    const check = canMoveOccurrence(task, snapshot.overrides, from.originalDate, target)
+    if (!check.ok) return // mismo día: no pasa nada
+
     setMessage(null)
     void run((actorId, device) => mover(task.id, from.originalDate, target, actorId, device))
   }

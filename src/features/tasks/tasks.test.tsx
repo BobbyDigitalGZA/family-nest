@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { cambiarCuandoToca, crearTarea, desmarcar, setSnapshotSourceForTests } from '../../data/actions'
+import { cambiarCuandoToca, crearTarea, desmarcar, mover, setSnapshotSourceForTests } from '../../data/actions'
 import * as repo from '../../data/repo'
 import type { EventRow, FamilySnapshot } from '../../data/repo'
 import type { Occurrence, Recurrence, Task } from '../../domain/types'
@@ -407,4 +407,20 @@ test('DeleteChoice se puede usar suelto', async () => {
   const t = weeklyTask()
   setup(<DeleteChoice task={t} originalDate={TODAY} open onClose={() => {}} />, [t])
   expect(screen.getByRole('button', { name: 'Todas' })).toBeInTheDocument()
+})
+
+test('mover una ocurrencia con la ventana cerrada falla con locked y no llama al repositorio', async () => {
+  const t = makeTask({ kind: 'once', date: '2026-10-25' })
+  setSnapshotSourceForTests(() =>
+    Promise.resolve({ family: testFamily, members, tasks: [t], overrides: [], completions: [] }),
+  )
+  await expect(mover('t1', '2026-10-25', TODAY, 'm1', 'wall')).rejects.toThrow('locked')
+  expect(repo.moveOccurrence).not.toHaveBeenCalled()
+  // ayer antes de las 10:00 sigue dentro de la ventana; hoy también
+  const today = makeTask({ kind: 'once', date: TODAY })
+  setSnapshotSourceForTests(() =>
+    Promise.resolve({ family: testFamily, members, tasks: [today], overrides: [], completions: [] }),
+  )
+  await mover('t1', TODAY, '2026-10-29', 'm1', 'wall')
+  expect(repo.moveOccurrence).toHaveBeenCalledTimes(1)
 })

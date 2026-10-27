@@ -119,7 +119,7 @@ export async function desmarcar(
   await uncompleteOccurrence(taskId, occurrenceDate, actorId, device)
 }
 
-/** Mueve solo esa ocurrencia; lanza 'already-occurs' / 'same-date' sin llamar a la RPC. */
+/** Mueve solo esa ocurrencia; lanza 'locked' / 'already-occurs' / 'same-date' sin llamar a la RPC. */
 export async function mover(
   taskId: string,
   originalDate: PlainDate,
@@ -130,6 +130,8 @@ export async function mover(
   const s = await assertFamilyMember(actorId)
   const task = s.tasks.find((t) => t.id === taskId)
   if (!task) throw new Error('task-not-found')
+  // Una ocurrencia cuya ventana de marcar cerró no se mueve (si no, se adelantaría y se marcaría sin «tarde»).
+  if (!markWindow(s, taskId, originalDate).ok) throw new Error('locked')
   await moveOccurrence(task, s.overrides, originalDate, target, actorId, device)
 }
 

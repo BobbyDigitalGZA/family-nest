@@ -5,6 +5,7 @@ import { t } from '../../i18n/es'
 import { useTasksData } from '../tasks/tasksContext'
 import { DayChip } from './DayChip'
 import { DayDialog } from './DayDialog'
+import { useNow } from './useNow'
 import { itemsByDay, type DayItem } from './dayData'
 import { DragArea } from './DragArea'
 import { DropDay } from './DropDay'
@@ -50,6 +51,7 @@ function useSlots(grid: React.RefObject<HTMLDivElement | null>, rows: number, fo
 /** Cuadrícula de lunes a domingo del mes visto. */
 export function MonthTab({ memberId, cursor, today, visibleSlots }: MonthTabProps) {
   const { snapshot } = useTasksData()
+  const now = useNow()
   const phone = useIsPhone()
   const [openDate, setOpenDate] = useState<PlainDate | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -59,7 +61,7 @@ export function MonthTab({ memberId, cursor, today, visibleSlots }: MonthTabProp
   const days = monthGrid(year, month)
   const first = days[0] as PlainDate
   const last = days[days.length - 1] as PlainDate
-  const byDay = itemsByDay(snapshot, memberId, first, last, new Date())
+  const byDay = itemsByDay(snapshot, memberId, first, last, now)
   const slots = useSlots(gridRef, days.length / 7, visibleSlots)
   const inMonth = (d: PlainDate) => Number(d.slice(5, 7)) === month
 
@@ -131,7 +133,7 @@ function PhoneCell({
       data-testid={`day-${date}`}
       data-today={today}
       data-outside={outside}
-      aria-label={`${formatDayMonth(date)}, ${t('dotsLabel', { n: items.length })}`}
+      aria-label={`${formatDayMonth(date)}, ${items.length === 1 ? t('dotsLabelOne') : t('dotsLabel', { n: items.length })}`}
       onClick={() => onOpen(date)}
     >
       <span className="pv-cell-num">{Number(date.slice(8))}</span>

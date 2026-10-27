@@ -469,9 +469,16 @@ async function main(): Promise<void> {
     await setZone(early)
     const mvTo = (task: string, from: string, to: string) =>
       a.rpc('rpc_move', { p_task_id: task, p_date: from, p_target: to, p_actor: actorA, p_device: 'phone' })
-    // Movida 3 días hacia adelante: su día original ya pasó, pero hoy es su día efectivo.
+    // Movida 3 días hacia adelante (override sembrado: mover una ocurrencia ya vencida está bloqueado):
+    // su día original ya pasó, pero hoy es su día efectivo.
     const later = await onceTask('movida-adelante', ymdIn(early, -3))
-    expect(!(await mvTo(later, ymdIn(early, -3), ymdIn(early, 0))).error, 'mover adelante falló')
+    await must(
+      admin.from('occurrence_override').insert({
+        task_id: later, occurrence_date: ymdIn(early, -3), family_id: A.familyId,
+        moved_to: ymdIn(early, 0), moved_at: new Date().toISOString(), moved_by_id: actorA,
+      }),
+      'seed move',
+    )
     const ok = await complete(later, ymdIn(early, -3), true)
     expect(!ok.error, `movida adelante bloqueada: ${ok.error?.message}`)
     const row = await must(admin.from('completion').select('late, occurrence_date').eq('task_id', later).single(), 'row')
@@ -480,6 +487,26 @@ async function main(): Promise<void> {
     const earlier = await onceTask('movida-atras', ymdIn(early, 0))
     expect(!(await mvTo(earlier, ymdIn(early, 0), ymdIn(early, -2))).error, 'mover atrás falló')
     expect(denied((await complete(earlier, ymdIn(early, 0))).error), 'movida atrás vencida pasó')
+    await setZone('UTC')
+  })
+
+  await check('mover: una ocurrencia con la ventana cerrada no se mueve; la de hoy sí', async () => {
+    const mvTo = (task: string, from: string, to: string) =>
+      a.rpc('rpc_move', { p_task_id: task, p_date: from, p_target: to, p_actor: actorA, p_device: 'phone' })
+    const overrides = async (task: string) =>
+      (await must(admin.from('occurrence_override').select('task_id').eq('task_id', task), 'ov')).length
+    await setZone(lateZone)
+    const yLate = await onceTask('mover-ayer-tarde', ymdIn(lateZone, -1))
+    expect(denied((await mvTo(yLate, ymdIn(lateZone, -1), ymdIn(lateZone, 0))).error), 'mover ayer pasado el corte pasó')
+    expect((await overrides(yLate)) === 0, 'quedó un override pese al bloqueo')
+    await setZone(early)
+    const old = await onceTask('mover-antier', ymdIn(early, -2))
+    expect(denied((await mvTo(old, ymdIn(early, -2), ymdIn(early, 0))).error), 'mover hace dos días pasó')
+    const y = await onceTask('mover-ayer-temprano', ymdIn(early, -1))
+    expect(!(await mvTo(y, ymdIn(early, -1), ymdIn(early, 1))).error, 'mover ayer antes del corte falló')
+    const today = await onceTask('mover-hoy', ymdIn(early, 0))
+    expect(!(await mvTo(today, ymdIn(early, 0), ymdIn(early, 2))).error, 'mover hoy falló')
+    expect((await overrides(today)) === 1, 'hoy no quedó movida')
     await setZone('UTC')
   })
 

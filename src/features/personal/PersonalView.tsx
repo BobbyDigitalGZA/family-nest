@@ -168,7 +168,7 @@ function Personal({ memberId, onBack }: PersonalViewProps) {
         {tab === 'month' && <MonthTab memberId={memberId} cursor={anchor} today={today} />}
       </div>
 
-      <NewTaskSheet open={creating} onClose={() => setCreating(false)} defaultAssigneeId={memberId} defaultDate={cursor ?? today} />
+      <NewTaskSheet open={creating} onClose={() => setCreating(false)} defaultAssigneeId={memberId} defaultDate={from > today ? from : today} />
     </main>
   )
 }
