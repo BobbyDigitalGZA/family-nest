@@ -3,6 +3,10 @@ export const es = {
   createdBy: 'Creada por {nickname}',
   complianceText: '{percent} % · {done} de {total}',
   noTasks: 'Sin tareas',
+  colorBlue: 'Azul',
+  colorPink: 'Rosa',
+  colorLilac: 'Lila',
+  colorGreen: 'Verde',
 }
 
 export function t(

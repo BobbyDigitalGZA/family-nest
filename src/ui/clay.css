@@ -1,0 +1,126 @@
+/* Piezas de arcilla: relieve nivel 2 (tokens v0.4). */
+
+.clay-panel {
+  border-radius: var(--panel-radius);
+  background: var(--panel-bg);
+  padding: var(--panel-padding);
+  box-shadow: var(--primitive-shadow-elevar-2), var(--primitive-shadow-brillo-panel);
+  color: var(--color-texto);
+}
+
+.clay-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--chip-radius);
+  padding: var(--chip-padding);
+  font-size: var(--chip-font-size);
+  color: var(--color-texto);
+  box-shadow: var(--primitive-shadow-elevar-1);
+}
+
+.clay-bar {
+  height: var(--barra-height);
+  border-radius: var(--barra-radius);
+  background: var(--barra-riel);
+  box-shadow: var(--primitive-shadow-hundir-suave);
+  overflow: hidden;
+}
+
+.clay-bar-fill {
+  height: 100%;
+  border-radius: var(--barra-radius);
+  transition: width var(--toque-rebote) var(--toque-curva);
+}
+
+/* Apretón de arcilla: hunde en 80 ms, rebota en 220 ms con sobrepaso. */
+.clay-checkbox {
+  display: inline-grid;
+  place-items: center;
+  width: var(--casilla-size);
+  height: var(--casilla-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--casilla-radius);
+  background: var(--casilla-bg);
+  color: var(--casilla-check);
+  box-shadow: var(--primitive-shadow-hundir-casilla);
+  cursor: pointer;
+  transition: transform var(--toque-rebote) var(--toque-curva);
+}
+.clay-checkbox[data-checked='true'] {
+  background: var(--casilla-bg-hecha);
+  box-shadow: var(--primitive-shadow-inflar-hecho);
+}
+.clay-checkbox svg {
+  width: 12px;
+  height: 12px;
+}
+.clay-checkbox:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.clay-checkbox[data-pressed='true'] {
+  transform: scale(var(--toque-escala-casilla));
+  transition-duration: var(--toque-hundir);
+  transition-timing-function: ease-out;
+}
+
+/* Anillo de foco: solo con teclado, pastel de 4 px, respira cada 2,2 s. */
+.clay-checkbox:focus-visible,
+.clay-sheet:focus-visible {
+  outline: none;
+  animation: clay-foco var(--foco-respiracion) ease-in-out infinite;
+}
+@keyframes clay-foco {
+  0%,
+  100% {
+    box-shadow: 0 0 0 var(--foco-ancho) color-mix(in srgb, var(--color-foco) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 var(--foco-ancho) color-mix(in srgb, var(--color-foco) 85%, transparent);
+  }
+}
+
+.clay-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end; /* hoja inferior (iPhone) */
+  justify-content: center;
+  background: rgba(74, 68, 88, 0.35);
+}
+
+.clay-sheet {
+  width: 100%;
+  max-height: 90dvh;
+  overflow: auto;
+  padding: var(--primitive-spacing-8);
+  padding-bottom: calc(var(--primitive-spacing-8) + env(safe-area-inset-bottom));
+  border-radius: var(--primitive-radius-panel) var(--primitive-radius-panel) 0 0;
+  background: var(--panel-bg);
+  box-shadow: var(--primitive-shadow-elevar-5);
+  color: var(--color-texto);
+}
+
+@media (min-width: 700px) {
+  .clay-sheet-backdrop {
+    align-items: center; /* ventana centrada en la pared */
+  }
+  .clay-sheet {
+    width: min(560px, 90vw);
+    border-radius: var(--panel-radius);
+    padding-bottom: var(--primitive-spacing-8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clay-bar-fill,
+  .clay-checkbox {
+    transition: none;
+  }
+  .clay-checkbox:focus-visible,
+  .clay-sheet:focus-visible {
+    animation: none;
+    box-shadow: 0 0 0 var(--foco-ancho) var(--color-foco);
+  }
+}
