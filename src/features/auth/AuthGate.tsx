@@ -6,6 +6,7 @@ import { t } from '../../i18n/es'
 import { Panel } from '../../ui/Panel'
 import '../identity/features.css'
 import { IdentityProvider } from '../identity/IdentityProvider'
+import { TasksProvider } from '../tasks/TasksProvider'
 import { Claim } from './Claim'
 import { Setup } from './Setup'
 import { SignIn } from './SignIn'
@@ -85,7 +86,7 @@ function Signed({ userId, children }: { userId: string; children: ReactNode }) {
       memberId={own?.id ?? null}
       members={snapshot.members}
     >
-      {children}
+      <TasksProvider value={{ snapshot, reload, readOnly: isDemoMode() }}>{children}</TasksProvider>
     </IdentityProvider>
   )
 }
