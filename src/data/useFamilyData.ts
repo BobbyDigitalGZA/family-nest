@@ -9,6 +9,8 @@ function demoSize(): number | null {
   return n > 0 ? n : null
 }
 
+export const isDemoMode = (): boolean => demoSize() !== null
+
 async function load(): Promise<FamilySnapshot> {
   const demo = demoSize()
   if (demo !== null) {

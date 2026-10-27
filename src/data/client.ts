@@ -29,20 +29,55 @@ export interface DataClient {
     select(columns?: string): QueryLike
     /** Only `interaction` is written directly; everything else goes through RPCs. */
     insert(row: Record<string, unknown>): PromiseLike<QueryResult>
+    /** Only the configuration columns granted to members (family: country_code, ...). */
+    update(values: Record<string, unknown>): QueryLike
   }
   channel(name: string): ChannelLike
   removeChannel(channel: ChannelLike): PromiseLike<unknown>
 }
 
+export interface SessionLike {
+  user: { id: string }
+}
+
+/** The slice of Supabase Auth the sign-in flow uses; tests inject a fake. */
+export interface AuthLike {
+  getSession(): PromiseLike<{ data: { session: SessionLike | null }; error: DbError | null }>
+  onAuthStateChange(cb: (event: string, session: SessionLike | null) => void): {
+    data: { subscription: { unsubscribe(): void } }
+  }
+  signInWithOtp(args: { email: string }): PromiseLike<{ error: DbError | null }>
+  verifyOtp(args: {
+    email: string
+    token: string
+    type: 'email'
+  }): PromiseLike<{ error: DbError | null }>
+}
+
 let client: DataClient | null = null
+let rawAuth: AuthLike | null = null
+let authOverride: AuthLike | null = null
 
 export function getClient(): DataClient {
   if (client) return client
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
   if (!url || !key) throw new Error('supabase-env-missing')
-  client = createClient(url, key) as unknown as DataClient
+  const created = createClient(url, key)
+  rawAuth = created.auth as unknown as AuthLike
+  client = created as unknown as DataClient
   return client
+}
+
+export function getAuth(): AuthLike {
+  if (authOverride) return authOverride
+  getClient()
+  if (!rawAuth) throw new Error('supabase-auth-unavailable')
+  return rawAuth
+}
+
+export function setAuthForTests(fake: AuthLike | null): void {
+  authOverride = fake
 }
 
 export function setClientForTests(fake: DataClient | null): void {

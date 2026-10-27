@@ -10,6 +10,8 @@ export function makeFakeClient() {
   const listeners = new Map<string, Set<Listener>>()
   const inserted: { table: string; row: Row }[] = []
   const names: string[] = []
+  const updated: { table: string; values: Row; filters: Row }[] = []
+  const rpcData = new Map<string, unknown>()
   let rpcError: string | null = null
 
   const client: DataClient = {
@@ -17,7 +19,7 @@ export function makeFakeClient() {
       calls.push({ fn, args })
       const res: QueryResult = rpcError
         ? { data: null, error: { message: rpcError } }
-        : { data: null, error: null }
+        : { data: rpcData.get(fn) ?? null, error: null }
       return Promise.resolve(res)
     },
     from(table) {
@@ -37,6 +39,23 @@ export function makeFakeClient() {
       }
       return {
         select: () => q,
+        update(values: Row) {
+          const entry = { table, values, filters: {} as Row }
+          updated.push(entry)
+          const u: QueryLike = {
+            eq(col: string, val: unknown) {
+              entry.filters[col] = val
+              return u
+            },
+            order() {
+              return u
+            },
+            then(ok, bad) {
+              return Promise.resolve({ data: null, error: null } as QueryResult).then(ok, bad)
+            },
+          }
+          return u
+        },
         insert(row: Row) {
           inserted.push({ table, row })
           return Promise.resolve({ data: null, error: null } as QueryResult)
@@ -71,6 +90,8 @@ export function makeFakeClient() {
   return {
     client,
     rpcCalls: (fn: string): Row[] => calls.filter((c) => c.fn === fn).map((c) => c.args),
+    updates: (table: string) => updated.filter((u) => u.table === table),
+    setRpcData: (fn: string, data: unknown) => void rpcData.set(fn, data),
     inserts: (table: string): Row[] => inserted.filter((i) => i.table === table).map((i) => i.row),
     channelNames: () => [...names],
     setTable: (name: string, rows: Row[]) => void tables.set(name, rows),
