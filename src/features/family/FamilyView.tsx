@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { todayIn } from '../../domain/dates'
 import { familyColumns } from '../../domain/layout'
 import { occurrencesBetween } from '../../domain/recurrence'
 import type { Occurrence, Task } from '../../domain/types'
@@ -13,21 +12,9 @@ import { ComplianceWidget } from './ComplianceWidget'
 import { useWallOrientation } from './orientationContext'
 import { asPalette } from './palette'
 import { Ribbon } from './Ribbon'
+import { useToday } from './useToday'
 import { WallFrame } from './WallFrame'
 import './family.css'
-
-const MINUTE = 60_000
-
-function useToday(timeZone: string): string {
-  const [today, setToday] = useState(() => todayIn(timeZone, new Date()))
-  useEffect(() => {
-    const tick = () => setToday(todayIn(timeZone, new Date()))
-    tick()
-    const id = window.setInterval(tick, MINUTE)
-    return () => window.clearInterval(id)
-  }, [timeZone])
-  return today
-}
 
 function Columns({ onOpenMember }: { onOpenMember: (id: string) => void }) {
   const { snapshot, readOnly } = useTasksData()

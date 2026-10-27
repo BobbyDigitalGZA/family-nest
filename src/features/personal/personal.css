@@ -1,0 +1,445 @@
+/* Vista personal: Hoy, Semana y Mes. Arcilla pastel sobre los tokens v0.4. */
+.pv-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  box-sizing: border-box;
+  color: var(--color-texto);
+}
+.pv-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  flex-wrap: wrap;
+}
+.pv-back {
+  white-space: nowrap;
+}
+.pv-name {
+  margin: 0;
+  max-width: 220px;
+  padding: 6px 16px;
+  border-radius: var(--chip-radius);
+  font-size: var(--primitive-fontSize-2xl);
+  background: var(--pv-c);
+  box-shadow: var(--primitive-shadow-elevar-1);
+}
+.pv-tabs {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+.pv-tab {
+  font: inherit;
+  font-size: var(--primitive-fontSize-xl);
+  color: var(--color-texto);
+  border: 0;
+  cursor: pointer;
+  min-height: 44px;
+  padding: var(--pestana-padding);
+  border-radius: var(--pestana-radius);
+  background: var(--tarea-bg);
+  box-shadow: var(--primitive-shadow-elevar-1);
+  transition: transform var(--toque-rebote) var(--toque-curva);
+}
+.pv-tab:active {
+  transform: scale(var(--toque-escala));
+  transition-duration: var(--toque-hundir);
+}
+.pv-tab[aria-selected='true'] {
+  background: var(--pv-c);
+  font-weight: 700;
+  box-shadow: var(--primitive-shadow-hundir-suave);
+}
+.pv-new {
+  flex: none;
+}
+
+.pv-compliance {
+  flex: none;
+  display: grid;
+  gap: 4px;
+  font-size: var(--primitive-fontSize-xl);
+  font-weight: 700;
+}
+.pv-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pv-heading {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--primitive-fontSize-2xl);
+  flex: 0 1 auto;
+}
+.pv-heading::first-letter,
+.pv-dialog-title::first-letter {
+  text-transform: uppercase;
+}
+.pv-arrow {
+  font: inherit;
+  font-size: var(--primitive-fontSize-2xl);
+  line-height: 1;
+  color: var(--color-texto);
+  border: 0;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--chip-radius);
+  background: var(--tarea-bg);
+  box-shadow: var(--primitive-shadow-elevar-1);
+}
+.pv-arrow:active {
+  transform: scale(var(--toque-escala));
+}
+.pv-nav .fn-link:disabled {
+  opacity: 0.45;
+  cursor: default;
+  text-decoration: none;
+}
+
+.pv-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+.pv-empty {
+  margin: 0;
+  color: var(--color-texto-apagado);
+}
+.pv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.pv-dialog-title {
+  margin: 0 0 12px;
+}
+.pv-status {
+  margin: 0;
+  flex: none;
+  padding: 6px 14px;
+  border-radius: var(--chip-radius);
+  background: var(--primitive-color-sol-base);
+  color: var(--color-texto);
+  box-shadow: var(--primitive-shadow-elevar-1);
+  width: fit-content;
+}
+.pv-status[data-empty='true'] {
+  display: none;
+}
+
+/* Chip de una ocurrencia (Semana y Mes). */
+.pv-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+}
+.pv-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 4px 3px 8px;
+  border-radius: var(--tarea-radius);
+  background: var(--tarea-bg);
+  box-shadow: var(--primitive-shadow-elevar-1);
+  font-size: var(--primitive-fontSize-md);
+}
+.pv-chip[data-state='done'] {
+  background: var(--tarea-bg-hecha);
+  box-shadow: var(--tarea-shadow-hecha);
+}
+.pv-chip[data-state='done'] .pv-chip-title {
+  text-decoration: line-through;
+  color: var(--color-texto-apagado);
+}
+.pv-chip[data-state='missed'] {
+  background: var(--primitive-color-pink-base);
+}
+.pv-chip[data-state='excused'] {
+  opacity: 0.7;
+}
+.pv-chip[data-dragging='true'] {
+  opacity: 0.35;
+}
+.pv-chip-title {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pv-grip {
+  flex: none;
+  font: inherit;
+  color: var(--color-texto-apagado);
+  background: none;
+  border: 0;
+  cursor: grab;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-radius: 8px;
+}
+.pv-grip:focus-visible {
+  outline: none;
+  animation: clay-foco var(--foco-respiracion) ease-in-out infinite;
+}
+.pv-chip-error {
+  flex-basis: 100%;
+  color: var(--color-texto);
+  font-size: var(--primitive-fontSize-sm);
+}
+.pv-overlay {
+  padding: 8px 14px;
+  border-radius: var(--tarea-radius);
+  background: var(--tarea-bg);
+  box-shadow: var(--primitive-shadow-elevar-4);
+  color: var(--color-texto);
+  cursor: grabbing;
+  white-space: nowrap;
+  transform: scale(1.04);
+}
+
+.pv-today-tag {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: var(--chip-radius);
+  font-size: var(--primitive-fontSize-sm);
+  font-weight: 700;
+  background: var(--pv-ch);
+  color: var(--color-texto);
+}
+
+/* Semana: siete columnas de lunes a domingo. */
+.pv-week {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.pv-day {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--celda-radius);
+  background: var(--color-superficie);
+  box-shadow: var(--primitive-shadow-hundir-suave);
+  overflow-y: auto;
+}
+.pv-day[data-today='true'],
+.pv-cell[data-today='true'] {
+  background: var(--pv-c);
+  border: 2px solid var(--pv-ch);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--pv-ch) 40%, transparent), var(--primitive-shadow-elevar-1);
+}
+.pv-day[data-over='true'],
+.pv-cell[data-over='true'] {
+  background: var(--primitive-color-lilac-claro);
+  box-shadow: var(--primitive-shadow-hundir), 0 0 0 3px var(--color-foco);
+}
+.pv-day-head {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: var(--primitive-fontSize-lg);
+  text-transform: capitalize;
+}
+.pv-day-num {
+  font-size: var(--primitive-fontSize-2xl);
+  font-weight: 700;
+}
+.pv-wd-long {
+  display: none;
+}
+
+/* Mes: cuadrícula de lunes a domingo a todo el ancho. */
+.pv-weekdays {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  text-align: center;
+  color: var(--color-texto-apagado);
+  font-size: var(--primitive-fontSize-md);
+  text-transform: capitalize;
+}
+.pv-month {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 6px;
+}
+.pv-cell {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 5px;
+  border-radius: var(--celda-radius);
+  background: var(--color-superficie);
+  box-shadow: var(--primitive-shadow-hundir-suave);
+  overflow: hidden;
+}
+.pv-cell[data-outside='true'] {
+  opacity: 0.55;
+}
+.pv-cell-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.pv-cell-num {
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--primitive-fontSize-xl);
+  color: var(--color-texto);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 4px;
+  border-radius: 10px;
+}
+.pv-more {
+  flex: none;
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--primitive-fontSize-md);
+  color: var(--color-texto-apagado);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0 6px;
+  min-height: 20px;
+}
+.pv-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+}
+.pv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pv-ch);
+}
+.pv-dot[data-dot='missed'] {
+  background: var(--primitive-color-pink-hondo);
+}
+.pv-dot[data-dot='done'] {
+  background: var(--color-hecho);
+}
+.pv-dot[data-dot='excused'] {
+  background: var(--primitive-color-arcilla-900);
+}
+
+/* iPhone: la semana se apila y el mes se vuelve puntos tocables. */
+@media (max-width: 699px) {
+  .pv-root {
+    padding: 10px;
+    gap: 8px;
+  }
+  .pv-top {
+    gap: 8px;
+  }
+  .pv-name {
+    order: -1;
+    flex: 1;
+    max-width: none;
+    font-size: var(--primitive-fontSize-xl);
+  }
+  .pv-tabs {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .pv-tab {
+    flex: 1;
+    padding: 8px 6px;
+  }
+  .pv-new {
+    order: 2;
+  }
+  .pv-week {
+    grid-template-columns: 1fr;
+    flex: none;
+  }
+  .pv-day {
+    overflow: visible;
+  }
+  .pv-wd-short {
+    display: none;
+  }
+  .pv-wd-long {
+    display: inline;
+  }
+  .pv-month {
+    gap: 4px;
+  }
+  .pv-cell-phone {
+    align-items: center;
+    justify-content: flex-start;
+    font: inherit;
+    color: var(--color-texto);
+    border: 0;
+    cursor: pointer;
+    padding: 4px 2px;
+    min-height: 44px;
+    gap: 2px;
+  }
+  .pv-cell-phone .pv-cell-num {
+    font-weight: 700;
+    font-size: var(--primitive-fontSize-lg);
+  }
+  .pv-cell-phone .pv-today-tag {
+    font-size: 10px;
+    padding: 0 5px;
+  }
+  .pv-weekdays {
+    gap: 4px;
+  }
+  .pv-heading {
+    font-size: var(--primitive-fontSize-xl);
+  }
+  .pv-nav .fn-link {
+    white-space: nowrap;
+    padding: 4px;
+  }
+}

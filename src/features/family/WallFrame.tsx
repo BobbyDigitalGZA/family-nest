@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { t } from '../../i18n/es'
-import { OrientationContext } from './orientationContext'
+import { OrientationContext, WallScaleContext } from './orientationContext'
 import { useWallScale } from './useWallScale'
 import './family.css'
 
@@ -36,7 +36,9 @@ export function WallFrame({ children }: { children: ReactNode }) {
         data-testid="wall-canvas"
         style={{ width, height, transform: `scale(${scale})` }}
       >
-        <OrientationContext.Provider value={orientation}>{children}</OrientationContext.Provider>
+        <WallScaleContext.Provider value={scale}>
+          <OrientationContext.Provider value={orientation}>{children}</OrientationContext.Provider>
+        </WallScaleContext.Provider>
       </div>
       <FullscreenButton />
     </div>
