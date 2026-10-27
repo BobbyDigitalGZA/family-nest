@@ -296,6 +296,7 @@ $$;
 create function public._scheduled_on(t public.task, d date) returns boolean
 language sql
 immutable
+set search_path = pg_catalog
 as $$
   select case t.rule
     when 'once' then t.due_date = d
@@ -587,6 +588,7 @@ declare
   v_tz text;
   v_now timestamp;
   v_late boolean;
+  v_eff date;
 begin
   -- p_late se ignora: el servidor decide (espejo de canMarkDone). 10:00 fijo hasta que
   -- la Tarea 7 agregue family.late_mark_until.
@@ -595,9 +597,14 @@ begin
   if p_date is null or not public._occurs_on(p_task_id, p_date) then
     raise exception 'not-an-occurrence' using errcode = 'P0001';
   end if;
-  if p_date >= v_now::date then
+  -- El corte se juzga por el día efectivo (moved_to si la ocurrencia se movió); la clave sigue siendo p_date.
+  select coalesce(o.moved_to, p_date) into v_eff
+    from (select 1) x
+    left join public.occurrence_override o
+      on o.task_id = p_task_id and o.occurrence_date = p_date;
+  if v_eff >= v_now::date then
     v_late := false;
-  elsif p_date = v_now::date - 1 and v_now::time < time '10:00' then
+  elsif v_eff = v_now::date - 1 and v_now::time < time '10:00' then
     v_late := true;
   else
     raise exception 'locked' using errcode = 'P0001';

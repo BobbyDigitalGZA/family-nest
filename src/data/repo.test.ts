@@ -79,6 +79,30 @@ describe('completar', () => {
     expect(fake.rpcCalls('rpc_complete')).toEqual([])
   })
 
+  test('una ocurrencia movida a más adelante se juzga por su día nuevo', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T15:30:00Z')) // 10:30 a. m., pasado el corte del día 26
+    const snap = testSnapshot()
+    snap.overrides = [
+      { taskId: 't-ayer-de-Leo', occurrenceDate: '2026-10-26', movedTo: '2026-10-29', deleted: false, excusedById: null },
+    ]
+    setSnapshotSourceForTests(() => Promise.resolve(snap))
+    await completar('t-ayer-de-Leo', '2026-10-26', 'm-Ana', 'wall')
+    expect(fake.rpcCalls('rpc_complete')[0]).toMatchObject({ p_date: '2026-10-26', p_late: false })
+  })
+
+  test('una ocurrencia movida a un día anterior ya vencido queda bloqueada', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T15:30:00Z'))
+    const snap = testSnapshot()
+    snap.overrides = [
+      { taskId: 't-hoy-de-Sol', occurrenceDate: '2026-10-27', movedTo: '2026-10-25', deleted: false, excusedById: null },
+    ]
+    setSnapshotSourceForTests(() => Promise.resolve(snap))
+    await expect(completar('t-hoy-de-Sol', '2026-10-27', 'm-Sol', 'phone')).rejects.toThrow('locked')
+    expect(fake.rpcCalls('rpc_complete')).toEqual([])
+  })
+
   test('el asignado marcando lo suyo no es forOther', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-27T14:00:00Z'))

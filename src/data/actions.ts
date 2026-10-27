@@ -54,8 +54,12 @@ export async function completar(
   const task = s.tasks.find((t) => t.id === taskId)
   if (!task) throw new Error('task-not-found')
   const now = new Date()
+  // The cutoff applies to the day the occurrence actually falls on (moved_to if moved).
+  const effectiveDate =
+    s.overrides.find((ov) => ov.taskId === taskId && ov.occurrenceDate === occurrenceDate)?.movedTo ??
+    occurrenceDate
   const verdict = canMarkDone(
-    occurrenceDate,
+    effectiveDate,
     todayIn(s.family.timeZone, now),
     localTimeIn(s.family.timeZone, now),
     s.family.lateMarkUntil,

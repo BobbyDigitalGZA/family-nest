@@ -417,6 +417,24 @@ async function main(): Promise<void> {
     await setZone('UTC')
   })
 
+  await check('marcar juzga por el día efectivo de una ocurrencia movida', async () => {
+    await setZone(early)
+    const mvTo = (task: string, from: string, to: string) =>
+      a.rpc('rpc_move', { p_task_id: task, p_date: from, p_target: to, p_actor: actorA, p_device: 'phone' })
+    // Movida 3 días hacia adelante: su día original ya pasó, pero hoy es su día efectivo.
+    const later = await onceTask('movida-adelante', ymdIn(early, -3))
+    expect(!(await mvTo(later, ymdIn(early, -3), ymdIn(early, 0))).error, 'mover adelante falló')
+    const ok = await complete(later, ymdIn(early, -3), true)
+    expect(!ok.error, `movida adelante bloqueada: ${ok.error?.message}`)
+    const row = await must(admin.from('completion').select('late, occurrence_date').eq('task_id', later).single(), 'row')
+    expect(row.late === false && row.occurrence_date === ymdIn(early, -3), 'late o clave incorrectos')
+    // Movida hacia atrás a hace 2 días: su día efectivo ya venció aunque el original sea hoy.
+    const earlier = await onceTask('movida-atras', ymdIn(early, 0))
+    expect(!(await mvTo(earlier, ymdIn(early, 0), ymdIn(early, -2))).error, 'mover atrás falló')
+    expect(denied((await complete(earlier, ymdIn(early, 0))).error), 'movida atrás vencida pasó')
+    await setZone('UTC')
+  })
+
   await check('marcar una fecha en que la tarea no ocurre falla', async () => {
     expect(denied((await complete(A.weeklyId, '2030-01-03')).error), 'jueves (no programado) pasó')
     expect(denied((await complete(A.taskId, '2030-01-11')).error), 'fecha distinta a la de la tarea pasó')
