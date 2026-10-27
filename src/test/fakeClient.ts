@@ -9,6 +9,7 @@ export function makeFakeClient() {
   const tables = new Map<string, Row[]>()
   const listeners = new Map<string, Set<Listener>>()
   const inserted: { table: string; row: Row }[] = []
+  const names: string[] = []
   let rpcError: string | null = null
 
   const client: DataClient = {
@@ -42,7 +43,8 @@ export function makeFakeClient() {
         },
       }
     },
-    channel() {
+    channel(name) {
+      names.push(name)
       const mine: { table: string; cb: Listener }[] = []
       const ch = {
         on(_t: 'postgres_changes', f: { table: string }, cb: Listener) {
@@ -70,6 +72,7 @@ export function makeFakeClient() {
     client,
     rpcCalls: (fn: string): Row[] => calls.filter((c) => c.fn === fn).map((c) => c.args),
     inserts: (table: string): Row[] => inserted.filter((i) => i.table === table).map((i) => i.row),
+    channelNames: () => [...names],
     setTable: (name: string, rows: Row[]) => void tables.set(name, rows),
     failRpc: (message: string) => void (rpcError = message),
     emit: (table: string) => listeners.get(table)?.forEach((cb) => cb()),
