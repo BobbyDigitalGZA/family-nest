@@ -39,7 +39,10 @@ function Columns({ onOpenMember, onOpenLog }: { onOpenMember: (id: string) => vo
     return out
   }, [members, snapshot.tasks, snapshot.overrides, today])
 
-  const counts = new Map([...byMember].map(([id, rows]) => [id, rows.length] as const))
+  // Como el cumplimiento: una ocurrencia excusada no cuenta.
+  const counts = new Map(
+    [...byMember].map(([id, rows]) => [id, rows.filter((r) => !r.occurrence.excused).length] as const),
+  )
   const cols = Math.max(1, familyColumns(members.length, orientation))
 
   return (

@@ -63,6 +63,14 @@ test.each([1, 4, 9])('con %i miembros nada se desborda y los apodos largos usan 
   expect(screen.getAllByTestId('nickname')[0]).toHaveClass('ellipsis')
 })
 
+test('la píldora no cuenta las ocurrencias excusadas, como el cumplimiento', () => {
+  const snapshot = fixtureFamily({ members: 2, today: '2026-10-27' })
+  snapshot.overrides = [{ taskId: 'b0', occurrenceDate: '2026-10-27', movedTo: null, deleted: false, excusedById: 'm2' }]
+  renderFamily(snapshot)
+  expect(within(ribbonPill('Ana')).getByText('1')).toBeInTheDocument()
+  expect(screen.getByTestId('compliance-Ana')).toHaveTextContent('100 % · 1 de 1')
+})
+
 test('tocar una píldora abre al miembro', () => {
   const open = vi.fn()
   renderFamily(fixtureFamily({ members: 3, today: '2026-10-27' }), open)
