@@ -65,10 +65,20 @@
   transition-timing-function: ease-out;
 }
 
-/* Anillo de foco: solo con teclado, pastel de 4 px, respira cada 2,2 s. */
-.clay-checkbox:focus-visible,
-.clay-sheet:focus-visible {
+/* Anillo de foco: solo con teclado, pastel de 4 px, respira cada 2,2 s.
+   Va en un pseudo-elemento para no pisar el relieve de la pieza. */
+.clay-checkbox {
+  position: relative;
+}
+.clay-checkbox:focus-visible {
   outline: none;
+}
+.clay-checkbox:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   animation: clay-foco var(--foco-respiracion) ease-in-out infinite;
 }
 @keyframes clay-foco {
@@ -79,6 +89,11 @@
   50% {
     box-shadow: 0 0 0 var(--foco-ancho) color-mix(in srgb, var(--color-foco) 85%, transparent);
   }
+}
+
+/* El contenedor de la hoja recibe foco por código: sin anillo. */
+.clay-sheet:focus-visible {
+  outline: none;
 }
 
 .clay-sheet-backdrop {
@@ -118,8 +133,7 @@
   .clay-checkbox {
     transition: none;
   }
-  .clay-checkbox:focus-visible,
-  .clay-sheet:focus-visible {
+  .clay-checkbox:focus-visible::after {
     animation: none;
     box-shadow: 0 0 0 var(--foco-ancho) var(--color-foco);
   }

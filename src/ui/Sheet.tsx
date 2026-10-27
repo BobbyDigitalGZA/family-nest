@@ -12,20 +12,25 @@ interface SheetProps {
 /** Ventana centrada desde 700 px de ancho; hoja inferior por debajo (CSS). */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
     ref.current?.focus()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
       previous?.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
   return (
