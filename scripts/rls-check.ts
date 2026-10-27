@@ -109,6 +109,14 @@ async function newFamily(label: string): Promise<Fixture> {
 async function cleanup(): Promise<void> {
   for (const id of createdFamilies) {
     for (const t of [
+      'celebration',
+      'greeting_memory',
+      'week_close',
+      'season_medal',
+      'level_state',
+      'season',
+      'day_off',
+      'departure_rule',
       'event_log',
       'interaction',
       'completion',
@@ -491,6 +499,62 @@ async function main(): Promise<void> {
     }
     const back = await must(a.from('task').select('id'), 'back')
     expect(back.length > 0, 'no volvió el acceso')
+  })
+  // --- Tablas previstas (Tarea 7) ---
+  const seedPrepared = async (F: Fixture, n: number): Promise<void> => {
+    const m = F.members[0]!
+    const f = F.familyId
+    await must(admin.from('departure_rule').insert({ family_id: f, member_id: m, leave_time: '07:30', weekdays: [1, 2, 3, 4, 5], start_date: '2030-01-01' }), `departure_rule ${n}`)
+    await must(admin.from('day_off').insert({ family_id: f, member_id: m, day: '2030-01-05', set_by_id: m }), `day_off ${n}`)
+    const season = await must(admin.from('season').insert({ family_id: f, number: 1, start_date: '2030-01-01', end_date: '2030-03-25' }).select('id').single(), `season ${n}`)
+    await must(admin.from('season_medal').insert({ season_id: season.id, family_id: f, member_id: m, best_level: 3 }), `season_medal ${n}`)
+    await must(admin.from('level_state').insert({ family_id: f, member_id: m, season_id: season.id }), `level_state ${n}`)
+    await must(admin.from('week_close').insert({ family_id: f, member_id: m, week_start: '2030-01-07', assigned: 5, done: 5, counts_for_minimum: true, result: 'up', level_before: 1, level_after: 2 }), `week_close ${n}`)
+    await must(admin.from('celebration').insert({ family_id: f, member_id: m, kind: 'daily', for_date: '2030-01-07', status: 'pending' }), `celebration ${n}`)
+    await must(admin.from('greeting_memory').insert({ family_id: f, member_id: null, day: '2030-01-07', band: 'morning' }), `greeting_memory ${n}`)
+  }
+  await seedPrepared(A, 'A')
+  await seedPrepared(B, 'B')
+  for (const table of ['departure_rule', 'day_off', 'season', 'season_medal', 'level_state', 'week_close', 'celebration', 'greeting_memory']) {
+    await check(`${table}: A lee lo suyo y no lo de B; sin escritura directa`, async () => {
+      const rows = await must(a.from(table).select('family_id'), `select ${table}`)
+      expect(rows.length === 1 && rows[0]!.family_id === A.familyId, `A ve ${rows.length} filas de ${table}`)
+      const d = await a.from(table).delete().eq('family_id', A.familyId).select()
+      expect(denied(d.error) || (d.data?.length ?? 0) === 0, `A borró en ${table}`)
+    })
+  }
+
+  await check('unicidad: dos filas de greeting_memory de la vista familiar el mismo día y franja', async () => {
+    const dup = await admin.from('greeting_memory').insert({ family_id: A.familyId, member_id: null, day: '2030-01-07', band: 'morning' })
+    expect(denied(dup.error), 'la vista familiar duplicada pasó')
+    const other = await admin.from('greeting_memory').insert({ family_id: A.familyId, member_id: null, day: '2030-01-07', band: 'night' })
+    expect(!other.error, `otra franja falló: ${other.error?.message}`)
+  })
+
+  await check('unicidad: dos celebraciones diarias de la misma persona y fecha', async () => {
+    const dup = await admin.from('celebration').insert({ family_id: A.familyId, member_id: A.members[0], kind: 'daily', for_date: '2030-01-07', status: 'pending' })
+    expect(denied(dup.error), 'la celebración duplicada pasó')
+    const wk = await admin.from('celebration').insert({ family_id: A.familyId, member_id: A.members[0], kind: 'weekly', for_date: '2030-01-07', status: 'pending' })
+    expect(!wk.error, `la semanal falló: ${wk.error?.message}`)
+  })
+
+  await check('family.late_mark_until cambia el corte de marcar tarde', async () => {
+    await setZone(early)
+    try {
+      const y = await onceTask('corte-configurable', ymdIn(early, -1))
+      await must(admin.from('family').update({ late_mark_until: '00:00' }).eq('id', A.familyId), 'corte 00:00')
+      expect(denied((await complete(y, ymdIn(early, -1))).error), 'con corte 00:00 ayer pasó')
+      await must(admin.from('family').update({ late_mark_until: '10:00' }).eq('id', A.familyId), 'corte 10:00')
+      const ok = await complete(y, ymdIn(early, -1))
+      expect(!ok.error, `con corte 10:00 ayer falló: ${ok.error?.message}`)
+      const own = await a.from('family').update({ week_close_dow: 6, idle_seconds: 90 }).eq('id', A.familyId).select()
+      expect(!own.error && own.data?.length === 1, 'A no pudo editar la configuración de su familia')
+      const bad = await a.from('family').update({ week_close_dow: 9 }).eq('id', A.familyId)
+      expect(denied(bad.error), 'week_close_dow 9 pasó')
+    } finally {
+      await must(admin.from('family').update({ late_mark_until: '10:00' }).eq('id', A.familyId), 'restore')
+      await setZone('UTC')
+    }
   })
 }
 
