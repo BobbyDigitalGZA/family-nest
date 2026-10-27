@@ -44,3 +44,24 @@ export interface Completion {
   completedById: string
   late: boolean
 }
+
+/** Only the nickname is ever shown: no full name and no role. */
+export interface Member {
+  id: string
+  familyId: string
+  nickname: string
+  color: string
+  birthday: PlainDate | null
+  sortOrder: number
+  authUserId: string | null
+  active: boolean
+}
+
+/** The family settings the data layer needs. */
+export interface Family {
+  id: string
+  name: string
+  timeZone: string
+  /** 'HH:MM' local time until which yesterday's tasks can still be marked. */
+  lateMarkUntil: string
+}
