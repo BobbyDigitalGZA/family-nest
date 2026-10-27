@@ -9,6 +9,14 @@ const BY_CODE: [string, TKey][] = [
   ['invalid-claim', 'errInvalidClaim'],
   ['invalid-code', 'errInvalidCode'],
   ['invalid-country', 'errInvalidCountry'],
+  ['locked', 'errLocked'],
+  ['not-an-occurrence', 'errNotOccurrence'],
+  ['already-occurs', 'errAlreadyOccurs'],
+  ['same-date', 'errSameDate'],
+  ['move-', 'errMove'],
+  ['not-a-member', 'errNotMember'],
+  ['task-not-found', 'errTaskNotFound'],
+  ['title-required', 'errTitleRequired'],
 ]
 
 /** Traduce el error de una RPC a un mensaje en español para mostrar a la persona. */

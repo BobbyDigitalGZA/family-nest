@@ -1,0 +1,169 @@
+/* Fila de tarea, nueva tarea y detalle: piezas de arcilla sobre los tokens. */
+.tk-row {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  column-gap: var(--primitive-spacing-4);
+  padding: var(--primitive-spacing-2) var(--primitive-spacing-4);
+  border-radius: var(--primitive-radius-fila);
+  color: var(--color-texto);
+}
+.tk-row[data-done='true'] .tk-title {
+  text-decoration: line-through;
+  color: var(--color-texto-apagado);
+}
+.tk-check {
+  display: inline-grid;
+  place-items: center;
+}
+/* El área tocable de la casilla (18 px) llega a 44 px sin cambiar su dibujo. */
+.tk-check .clay-checkbox::before {
+  content: '';
+  position: absolute;
+  inset: -13px;
+}
+.tk-title,
+.tk-del {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.tk-title {
+  text-align: left;
+  padding: var(--primitive-spacing-3) 0;
+  min-height: 32px;
+}
+.tk-del {
+  color: var(--color-texto-apagado);
+  min-width: 32px;
+  min-height: 32px;
+}
+.tk-del:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.tk-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--primitive-spacing-3);
+  color: var(--color-texto-apagado);
+  font-size: var(--chip-font-size);
+}
+.tk-type {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitive-spacing-2);
+}
+.tk-tag {
+  border-radius: var(--chip-radius);
+  padding: 2px 8px;
+  background: var(--primitive-color-arcilla-200);
+}
+.tk-error {
+  grid-column: 1 / -1;
+}
+
+/* iPhone: etiqueta y leyenda bajan a una segunda línea; todo lo tocable llega a 44 px. */
+@media (max-width: 699px) {
+  .tk-row {
+    grid-template-columns: auto 1fr auto;
+    row-gap: 0;
+  }
+  .tk-meta {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  .tk-title,
+  .tk-del {
+    min-height: 44px;
+  }
+  .tk-del {
+    min-width: 44px;
+  }
+}
+
+.tk-inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: var(--primitive-spacing-4);
+}
+.tk-when,
+.tk-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--primitive-spacing-3);
+  margin-bottom: 12px;
+}
+.tk-day {
+  font: inherit;
+  color: var(--color-texto);
+  border: 0;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--chip-radius);
+  background: var(--primitive-color-arcilla-200);
+  box-shadow: var(--primitive-shadow-elevar-1);
+}
+.tk-day[aria-pressed='true'] {
+  background: var(--color-persona-lilac);
+  box-shadow: var(--primitive-shadow-hundir-suave);
+}
+.tk-day:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.tk-check-line {
+  display: flex;
+  align-items: center;
+  gap: var(--primitive-spacing-3);
+  min-height: 44px;
+}
+.tk-recurrence {
+  margin-bottom: 12px;
+}
+.tk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--primitive-spacing-4);
+  margin-top: 12px;
+}
+.tk-hint {
+  color: var(--color-texto-apagado);
+}
+.tk-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--primitive-spacing-3) var(--primitive-spacing-7);
+  color: var(--color-texto-apagado);
+}
+.tk-facts dd {
+  margin: 0;
+  color: var(--color-texto);
+}
+.tk-when-set {
+  border: 0;
+  padding: 0;
+  margin: 12px 0;
+}
+.tk-subtitle {
+  margin: 16px 0 8px;
+}
+.tk-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--primitive-spacing-3);
+}
+.tk-history time {
+  color: var(--color-texto-apagado);
+  font-size: var(--chip-font-size);
+}

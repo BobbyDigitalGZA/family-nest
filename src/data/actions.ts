@@ -1,11 +1,15 @@
 import { canMarkDone, compliance, formatCompliance } from '../domain/completion'
 import { addDays, lastDayOfMonth, localTimeIn, todayIn, weekStart } from '../domain/dates'
 import { occurrencesBetween } from '../domain/recurrence'
-import type { Occurrence, PlainDate } from '../domain/types'
+import type { Occurrence, PlainDate, Recurrence } from '../domain/types'
 import {
   completeOccurrence,
   createTask,
+  deleteOccurrence,
+  deleteSeriesFrom,
   loadFamilySnapshot,
+  moveOccurrence,
+  uncompleteOccurrence,
   updateTask,
   type Device,
   type FamilySnapshot,
@@ -36,7 +40,9 @@ export async function assertFamilyMember(
 
 export async function crearTarea(input: NewTaskInput, actorId: string, device: Device) {
   await assertFamilyMember(actorId)
-  await createTask(input, actorId, device)
+  const title = input.title.trim()
+  if (title === '') throw new Error('title-required')
+  await createTask({ ...input, title }, actorId, device)
 }
 
 export async function asignar(taskId: string, memberId: string, actorId: string, device: Device) {
@@ -73,6 +79,71 @@ export async function completar(
     verdict.late,
     task.assigneeId !== actorId,
   )
+}
+
+export async function renombrar(taskId: string, title: string, actorId: string, device: Device) {
+  await assertFamilyMember(actorId)
+  const clean = title.trim()
+  if (clean === '') throw new Error('title-required')
+  await updateTask(taskId, { title: clean }, actorId, device)
+}
+
+/** Cambia la repetición de toda la serie (una vez <-> semanal / mensual). */
+export async function cambiarCuandoToca(
+  taskId: string,
+  recurrence: Recurrence,
+  actorId: string,
+  device: Device,
+) {
+  await assertFamilyMember(actorId)
+  await updateTask(taskId, { recurrence }, actorId, device)
+}
+
+export async function desmarcar(
+  taskId: string,
+  occurrenceDate: PlainDate,
+  actorId: string,
+  device: Device,
+) {
+  await assertFamilyMember(actorId)
+  await uncompleteOccurrence(taskId, occurrenceDate, actorId, device)
+}
+
+/** Mueve solo esa ocurrencia; lanza 'already-occurs' / 'same-date' sin llamar a la RPC. */
+export async function mover(
+  taskId: string,
+  originalDate: PlainDate,
+  target: PlainDate,
+  actorId: string,
+  device: Device,
+) {
+  const s = await assertFamilyMember(actorId)
+  const task = s.tasks.find((t) => t.id === taskId)
+  if (!task) throw new Error('task-not-found')
+  await moveOccurrence(task, s.overrides, originalDate, target, actorId, device)
+}
+
+export async function borrarOcurrencia(
+  taskId: string,
+  occurrenceDate: PlainDate,
+  actorId: string,
+  device: Device,
+) {
+  await assertFamilyMember(actorId)
+  await deleteOccurrence(taskId, occurrenceDate, actorId, device)
+}
+
+/** "Todas": corta la serie desde esa ocurrencia; borra la tarea solo si no tiene pasado. */
+export async function borrarSerie(
+  taskId: string,
+  occurrenceDate: PlainDate,
+  actorId: string,
+  device: Device,
+) {
+  const s = await assertFamilyMember(actorId)
+  const task = s.tasks.find((t) => t.id === taskId)
+  if (!task) throw new Error('task-not-found')
+  await deleteSeriesFrom(task, occurrenceDate, todayIn(s.family.timeZone, new Date()), actorId, device)
 }
 
 function occurrencesFor(
