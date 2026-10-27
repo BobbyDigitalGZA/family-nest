@@ -10,6 +10,8 @@ export interface QueryResult {
 
 export interface QueryLike extends PromiseLike<QueryResult> {
   eq(column: string, value: unknown): QueryLike
+  gte(column: string, value: string): QueryLike
+  lt(column: string, value: string): QueryLike
   order(column: string, opts?: { ascending?: boolean }): QueryLike
 }
 

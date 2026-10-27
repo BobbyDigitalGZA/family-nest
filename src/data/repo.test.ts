@@ -318,4 +318,19 @@ describe('repo', () => {
     const ev = await loadEvents({ type: 'completed' })
     expect(ev).toEqual([expect.objectContaining({ id: 2, taskTitle: 'X', actorId: 'm1' })])
   })
+
+  test('loadEvents pasa los límites de tiempo a la consulta', async () => {
+    fake.setTable('task', [])
+    fake.setTable('event_log', [
+      { id: 1, at: '2026-10-25T10:00:00Z', actor_id: 'm1', type: 'created', device: 'wall', payload: {} },
+      { id: 2, at: '2026-10-27T10:00:00Z', actor_id: 'm1', type: 'created', device: 'wall', payload: {} },
+      { id: 3, at: '2026-11-05T10:00:00Z', actor_id: 'm1', type: 'created', device: 'wall', payload: {} },
+    ])
+    const got = await loadEvents({ from: '2026-10-25T12:00:00Z', to: '2026-11-03T00:00:00Z' })
+    expect(got.map((e) => e.id)).toEqual([2])
+    expect(fake.bounds('event_log')).toEqual([
+      { table: 'event_log', op: 'gte', col: 'at', val: '2026-10-25T12:00:00Z' },
+      { table: 'event_log', op: 'lt', col: 'at', val: '2026-11-03T00:00:00Z' },
+    ])
+  })
 })

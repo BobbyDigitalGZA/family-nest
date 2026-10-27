@@ -41,3 +41,41 @@ test('lista, resumen y filtros por persona y acción', async () => {
   await user.selectOptions(screen.getByLabelText('Acción'), 'completed')
   await waitFor(() => expect(screen.getByText('No hay eventos con estos filtros.')).toBeInTheDocument())
 })
+
+test('pide solo la semana vista y vuelve a pedir al cambiar de semana', async () => {
+  const user = userEvent.setup()
+  render(
+    <TasksProvider value={{ snapshot, reload: () => {}, readOnly: false }}>
+      <EventLog onBack={() => {}} />
+    </TasksProvider>,
+  )
+  await screen.findByRole('list', { name: 'Registro de eventos' })
+  expect(repo.loadEvents).toHaveBeenLastCalledWith({ from: '2026-10-25T00:00:00Z', to: '2026-11-03T00:00:00Z' })
+  await user.click(screen.getByRole('button', { name: 'Semana anterior' }))
+  await waitFor(() =>
+    expect(repo.loadEvents).toHaveBeenLastCalledWith({ from: '2026-10-18T00:00:00Z', to: '2026-10-27T00:00:00Z' }),
+  )
+})
+
+test('demostración: avisa que es solo lectura y no consulta', () => {
+  vi.mocked(repo.loadEvents).mockClear()
+  render(
+    <TasksProvider value={{ snapshot, reload: () => {}, readOnly: true }}>
+      <EventLog onBack={() => {}} />
+    </TasksProvider>,
+  )
+  expect(screen.getByText('Modo de demostración: solo lectura.')).toBeInTheDocument()
+  expect(repo.loadEvents).not.toHaveBeenCalled()
+})
+
+test('muestra Cargando… sin mensajes de vacío mientras carga', async () => {
+  vi.mocked(repo.loadEvents).mockReturnValue(new Promise(() => {}))
+  render(
+    <TasksProvider value={{ snapshot, reload: () => {}, readOnly: false }}>
+      <EventLog onBack={() => {}} />
+    </TasksProvider>,
+  )
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('No hay eventos con estos filtros.')).toBeNull()
+  expect(screen.queryByText('Sin movimientos esta semana.')).toBeNull()
+})

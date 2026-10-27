@@ -11,6 +11,7 @@ export function makeFakeClient() {
   const inserted: { table: string; row: Row }[] = []
   const names: string[] = []
   const updated: { table: string; values: Row; filters: Row }[] = []
+  const bounds: { table: string; op: string; col: string; val: string }[] = []
   const rpcData = new Map<string, unknown>()
   let rpcError: string | null = null
 
@@ -29,6 +30,16 @@ export function makeFakeClient() {
           rows = rows.filter((r) => r[col] === val)
           return q
         },
+        gte(col: string, val: string) {
+          bounds.push({ table, op: 'gte', col, val })
+          rows = rows.filter((r) => Date.parse(String(r[col])) >= Date.parse(val))
+          return q
+        },
+        lt(col: string, val: string) {
+          bounds.push({ table, op: 'lt', col, val })
+          rows = rows.filter((r) => Date.parse(String(r[col])) < Date.parse(val))
+          return q
+        },
         order() {
           return q
         },
@@ -45,6 +56,12 @@ export function makeFakeClient() {
           const u: QueryLike = {
             eq(col: string, val: unknown) {
               entry.filters[col] = val
+              return u
+            },
+            gte() {
+              return u
+            },
+            lt() {
               return u
             },
             order() {
@@ -90,6 +107,7 @@ export function makeFakeClient() {
   return {
     client,
     rpcCalls: (fn: string): Row[] => calls.filter((c) => c.fn === fn).map((c) => c.args),
+    bounds: (table: string) => bounds.filter((b) => b.table === table),
     updates: (table: string) => updated.filter((u) => u.table === table),
     setRpcData: (fn: string, data: unknown) => void rpcData.set(fn, data),
     inserts: (table: string): Row[] => inserted.filter((i) => i.table === table).map((i) => i.row),

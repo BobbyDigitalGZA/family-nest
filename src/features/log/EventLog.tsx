@@ -28,7 +28,8 @@ function download(name: string, csv: string) {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  URL.revokeObjectURL(url)
+  // Safari/iOS needs the URL alive a moment after the click.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Registro de eventos: solo lectura. Resumen de la semana, lista filtrable y CSV. */
@@ -38,28 +39,41 @@ export function EventLog({ onBack }: { onBack: () => void }) {
   const today = useToday(family.timeZone)
   const [offset, setOffset] = useState(0)
   const [events, setEvents] = useState<EventRow[]>([])
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [person, setPerson] = useState('')
   const [action, setAction] = useState('')
+
+  const start = addDays(weekStart(today), offset * 7)
+  // One day of padding on each side covers time-zone offsets; the exact week is filtered below.
+  const from = `${addDays(start, -1)}T00:00:00Z`
+  const to = `${addDays(start, 8)}T00:00:00Z`
+
+  const key = `${from}|${to}`
+  const loading = !readOnly && loadedKey !== key
 
   useEffect(() => {
     // Demostración: no hay base de datos que leer.
     if (readOnly) return
     let alive = true
-    loadEvents().then(
+    loadEvents({ from, to }).then(
       (rows) => {
-        if (alive) setEvents(rows)
+        if (!alive) return
+        setEvents(rows)
+        setError(null)
+        setLoadedKey(key)
       },
       (e: unknown) => {
-        if (alive) setError(errorText(e))
+        if (!alive) return
+        setError(errorText(e))
+        setLoadedKey(key)
       },
     )
     return () => {
       alive = false
     }
-  }, [readOnly])
+  }, [readOnly, from, to, key])
 
-  const start = addDays(weekStart(today), offset * 7)
   const nick = (id: string) => members.find((m) => m.id === id)?.nickname ?? t('logUnknownActor')
   const inWeek = useMemo(
     () => events.filter((e) => weekOfEvent(e.at, family.timeZone) === start),
@@ -97,9 +111,11 @@ export function EventLog({ onBack }: { onBack: () => void }) {
           {error}
         </p>
       )}
+      {readOnly && <p className="lg-note">{t('readOnlyNote')}</p>}
+      {loading && <p role="status">{t('loading')}</p>}
       <section aria-label={t('logSummary')}>
         <h3 className="lg-sub">{t('logSummary')}</h3>
-        {summary.length === 0 ? (
+        {loading ? null : summary.length === 0 ? (
           <p>{t('logSummaryEmpty')}</p>
         ) : (
           <table className="lg-table">
@@ -150,7 +166,7 @@ export function EventLog({ onBack }: { onBack: () => void }) {
           </select>
         </label>
       </div>
-      {shown.length === 0 ? (
+      {loading ? null : shown.length === 0 ? (
         <p>{t('logNone')}</p>
       ) : (
         <ul className="lg-list" aria-label={t('logTitle')}>

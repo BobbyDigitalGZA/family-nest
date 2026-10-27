@@ -81,11 +81,16 @@ export async function loadEvents(filter?: {
   memberId?: string
   type?: EventType
   taskId?: string
+  /** Timestamp bounds (ISO, from inclusive, to exclusive) applied in the query. */
+  from?: string
+  to?: string
 }): Promise<EventRow[]> {
   let q = getClient().from('event_log').select('*')
   if (filter?.memberId) q = q.eq('actor_id', filter.memberId)
   if (filter?.type) q = q.eq('type', filter.type)
   if (filter?.taskId) q = q.eq('task_id', filter.taskId)
+  if (filter?.from) q = q.gte('at', filter.from)
+  if (filter?.to) q = q.lt('at', filter.to)
   const events = (unwrap(await q.order('id', { ascending: false })) as Row[] | null) ?? []
   const titles = new Map((await rows('task')).map((r) => [String(r.id), String(r.title)] as const))
   return events.map((r) => {
