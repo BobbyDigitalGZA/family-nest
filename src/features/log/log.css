@@ -1,0 +1,6 @@
+.lg-root { height: 100%; overflow: auto; padding: 16px; box-sizing: border-box; color: var(--color-texto); display: flex; flex-direction: column; gap: 10px; }
+.lg-top, .lg-week, .lg-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lg-title, .lg-sub { margin: 0; }
+.lg-table { border-collapse: collapse; }
+.lg-table th, .lg-table td { padding: 4px 12px; text-align: left; }
+.lg-list { margin: 0; padding-left: 20px; }

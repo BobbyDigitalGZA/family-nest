@@ -16,7 +16,7 @@ import { useToday } from './useToday'
 import { WallFrame } from './WallFrame'
 import './family.css'
 
-function Columns({ onOpenMember }: { onOpenMember: (id: string) => void }) {
+function Columns({ onOpenMember, onOpenLog }: { onOpenMember: (id: string) => void; onOpenLog?: () => void }) {
   const { snapshot, readOnly } = useTasksData()
   const orientation = useWallOrientation()
   const today = useToday(snapshot.family.timeZone)
@@ -46,6 +46,11 @@ function Columns({ onOpenMember }: { onOpenMember: (id: string) => void }) {
     <main className="fv-root">
       <header className="fv-top">
         <Ribbon members={members} counts={counts} onOpenMember={onOpenMember} />
+        {onOpenLog && (
+          <button type="button" className="fn-btn" onClick={onOpenLog}>
+            {t('logOpen')}
+          </button>
+        )}
         <button type="button" className="fn-btn fv-new" disabled={readOnly} onClick={() => setCreating(true)}>
           {t('newTask')}
         </button>
@@ -86,7 +91,7 @@ function Columns({ onOpenMember }: { onOpenMember: (id: string) => void }) {
 }
 
 /** Vista familiar: una columna por miembro con sus tareas de hoy y su cumplimiento. */
-export function FamilyView({ onOpenMember }: { onOpenMember: (memberId: string) => void }) {
+export function FamilyView({ onOpenMember, onOpenLog }: { onOpenMember: (memberId: string) => void; onOpenLog?: () => void }) {
   const { backToFamily } = useActor()
   // Volver a la vista familiar termina a la persona elegida.
   useEffect(() => {
@@ -94,7 +99,7 @@ export function FamilyView({ onOpenMember }: { onOpenMember: (memberId: string) 
   }, [backToFamily])
   return (
     <WallFrame>
-      <Columns onOpenMember={onOpenMember} />
+      <Columns onOpenMember={onOpenMember} onOpenLog={onOpenLog} />
     </WallFrame>
   )
 }

@@ -1,4 +1,5 @@
-import type { FamilySnapshot } from '../data/repo'
+import type { Device, EventRow, FamilySnapshot } from '../data/repo'
+import type { EventType } from '../domain/events'
 import type { Completion, Family, Member, Occurrence, PlainDate, Recurrence, Task, Weekday } from '../domain/types'
 
 export function task(recurrence: Recurrence, patch: Partial<Task> = {}): Task {
@@ -86,4 +87,33 @@ export function testSnapshot(): FamilySnapshot {
       c('t-ana-dos', '2026-10-30'),
     ],
   }
+}
+
+/** Invented event row for the log tests. */
+export function ev(p: {
+  at: string
+  actor: string
+  type: EventType
+  title: string
+  occurrenceDate?: PlainDate
+  device?: Device
+  payload?: Record<string, unknown>
+  id?: number
+}): EventRow {
+  return {
+    id: p.id ?? 1,
+    at: p.at,
+    actorId: p.actor,
+    type: p.type,
+    taskId: 't1',
+    taskTitle: p.title,
+    occurrenceDate: p.occurrenceDate ?? '2026-10-26',
+    device: p.device ?? 'wall',
+    payload: p.payload ?? { to: '2026-10-28' },
+  }
+}
+
+/** Short member helper: id and nickname only. */
+export function m(id: string, nickname: string, patch: Partial<Member> = {}): Member {
+  return member(id, nickname, patch)
 }
