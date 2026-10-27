@@ -1,4 +1,4 @@
-import type { Occurrence, PlainDate, Recurrence, Task } from '../domain/types'
+import type { Completion, Occurrence, PlainDate, Recurrence, Task } from '../domain/types'
 
 export function task(recurrence: Recurrence, patch: Partial<Task> = {}): Task {
   return {
@@ -21,4 +21,14 @@ export function dates(occ: Occurrence[]): PlainDate[] {
 
 export function o(taskId: string, date: PlainDate): Occurrence {
   return { taskId, originalDate: date, date, excused: false }
+}
+
+export function c(taskId: string, date: PlainDate): Completion {
+  return {
+    taskId,
+    occurrenceDate: date,
+    completedAt: '2026-10-27T12:00:00Z',
+    completedById: 'm1',
+    late: false,
+  }
 }

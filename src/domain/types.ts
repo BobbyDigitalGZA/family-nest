@@ -35,3 +35,12 @@ export interface Occurrence {
   date: PlainDate
   excused: boolean
 }
+
+export interface Completion {
+  taskId: string
+  /** Keyed by the occurrence's originalDate, so a moved occurrence keeps its mark. */
+  occurrenceDate: PlainDate
+  completedAt: string
+  completedById: string
+  late: boolean
+}

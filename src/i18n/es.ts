@@ -1,6 +1,8 @@
 export const es = {
   appName: 'Family Nest',
   createdBy: 'Creada por {nickname}',
+  complianceText: '{percent} % · {done} de {total}',
+  noTasks: 'Sin tareas',
 }
 
 export function t(
