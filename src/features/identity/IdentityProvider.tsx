@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { Device } from '../../data/repo'
-import { identityReducer, type IdentityState } from '../../domain/identity'
+import { IDENTITY_TIMEOUT_MS, identityReducer, type IdentityState } from '../../domain/identity'
 import type { Member } from '../../domain/types'
 import { ActorContext, type ActorApi } from './identityContext'
 import { WhoAreYou } from './WhoAreYou'
@@ -47,12 +47,22 @@ export function IdentityProvider({ device, members, memberId = null, children }:
     }
   }, [wall])
 
+  // Al desmontar, nadie queda esperando para siempre.
+  useEffect(
+    () => () => {
+      const pending = waiters.current
+      waiters.current = []
+      pending.forEach((w) => w.reject(new Error('identity-cancelled')))
+    },
+    [],
+  )
+
   const requireActor = useCallback((): Promise<string> => {
     if (!wall) {
       return memberId ? Promise.resolve(memberId) : Promise.reject(new Error('not-a-member'))
     }
-    const current = stateRef.current.actorId
-    if (current) {
+    const { actorId: current, lastActivityAt } = stateRef.current
+    if (current && Date.now() - lastActivityAt < IDENTITY_TIMEOUT_MS) {
       dispatch({ type: 'activity', now: Date.now() })
       return Promise.resolve(current)
     }

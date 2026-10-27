@@ -15,7 +15,6 @@ afterEach(() => setClientForTests(null))
 
 test('Setup acepta cualquier número de miembros, guarda el país y muestra el código', async () => {
   fake.setRpcData('create_family', 'ABCD2345')
-  fake.setTable('family', [{ id: 'f1' }])
   const onDone = vi.fn()
   render(<Setup onDone={onDone} />)
   await userEvent.type(screen.getByLabelText('Nombre de la familia'), 'Los Inventados')
@@ -34,10 +33,9 @@ test('Setup acepta cualquier número de miembros, guarda el país y muestra el c
     'Ana', 'Leo', 'Sol', 'Tomi', 'Vale',
   ])
   expect(call.p_time_zone).toEqual(expect.any(String))
-  expect(fake.updates('family')[0]).toMatchObject({
-    values: { country_code: 'MX' },
-    filters: { id: 'f1' },
-  })
+  // El país viaja dentro de create_family (atómico): no hay un UPDATE aparte.
+  expect(call.p_country_code).toBe('MX')
+  expect(fake.updates('family')).toHaveLength(0)
 })
 
 test('Setup exige país y apodos antes de llamar a la base', async () => {

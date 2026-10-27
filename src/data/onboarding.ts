@@ -29,7 +29,7 @@ export interface ClaimableMember {
   color: string
 }
 
-/** Crea la familia y devuelve el código de unión. */
+/** Crea la familia (con su país) y devuelve el código de unión. El primer miembro es quien llama. */
 export async function createFamily(input: NewFamilyInput): Promise<string> {
   const data = unwrap(
     await getClient().rpc('create_family', {
@@ -40,19 +40,16 @@ export async function createFamily(input: NewFamilyInput): Promise<string> {
         color: m.color,
         birthday: m.birthday,
       })),
+      p_country_code: input.countryCode,
     }),
   )
   if (typeof data !== 'string' || data === '') throw new Error('join-code-missing')
   return data
 }
 
-/** Guarda el país de los festivos por la vía de actualización de la familia (columna con grant). */
-export async function saveFamilyCountry(countryCode: string): Promise<void> {
-  const client = getClient()
-  const found = unwrap(await client.from('family').select('id')) as Row[] | null
-  const id = found?.[0]?.id
-  if (id == null) throw new Error('family-not-found')
-  unwrap(await client.from('family').update({ country_code: countryCode }).eq('id', String(id)))
+/** ¿Ya hay una familia? Decide entre Configurar (no) y Unirse (sí). */
+export async function familyExists(): Promise<boolean> {
+  return unwrap(await getClient().rpc('family_exists')) === true
 }
 
 export async function listClaimableMembers(code: string): Promise<ClaimableMember[]> {

@@ -76,14 +76,14 @@ export function SignIn() {
               <input
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                pattern="[0-9]{6,8}"
-                maxLength={8}
+                pattern="[0-9]{6}"
+                maxLength={6}
                 required
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
               />
             </label>
-            <button type="submit" className="fn-btn" disabled={busy || !/^[0-9]{6,8}$/.test(token.trim())}>
+            <button type="submit" className="fn-btn" disabled={busy || !/^[0-9]{6}$/.test(token.trim())}>
               {t('verifyCode')}
             </button>
             <button

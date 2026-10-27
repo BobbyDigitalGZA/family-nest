@@ -196,12 +196,32 @@ async function main(): Promise<void> {
   })
 
   await check('create_family falla si ya existe una familia', async () => {
-    const args = { p_name: 'Otra', p_time_zone: 'UTC', p_members: [{ nickname: 'X', color: 'blue' }] }
+    const args = {
+      p_name: 'Otra',
+      p_time_zone: 'UTC',
+      p_members: [{ nickname: 'X', color: 'blue' }],
+      p_country_code: 'MX',
+    }
     expect(denied((await a.rpc('create_family', args)).error), 'create_family no falló')
     expect(
       denied((await userD.client.rpc('create_family', args)).error),
       'create_family de usuario sin miembro no falló',
     )
+  })
+
+  await check('create_family: país inválido se rechaza; family_exists solo para authenticated', async () => {
+    const base = { p_name: 'Otra', p_time_zone: 'UTC', p_members: [{ nickname: 'X', color: 'blue' }] }
+    for (const bad of [null, '', 'mx', 'MEX', '1A']) {
+      const r = await userD.client.rpc('create_family', { ...base, p_country_code: bad })
+      expect(r.error !== null && r.error.message.includes('invalid-country'), `país ${String(bad)} no rechazado: ${r.error?.message}`)
+    }
+    const old = await userD.client.rpc('create_family', { p_name: 'Otra', p_time_zone: 'UTC', p_members: base.p_members })
+    expect(denied(old.error), 'la firma vieja de 3 argumentos sigue existiendo')
+    const fe = await userD.client.rpc('family_exists')
+    expect(!fe.error && fe.data === true, `family_exists: ${fe.error?.message} ${String(fe.data)}`)
+    const anon = createClient(url!, publishable!, opts)
+    expect(denied((await anon.rpc('family_exists')).error), 'anon pudo llamar family_exists')
+    expect(denied((await anon.rpc('create_family', { ...base, p_country_code: 'MX' })).error), 'anon pudo crear familia')
   })
 
   await check('list_claimable_members: solo apodos libres del código; código malo vacío; anon no puede', async () => {

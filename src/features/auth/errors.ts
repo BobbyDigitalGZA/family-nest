@@ -8,6 +8,7 @@ const BY_CODE: [string, TKey][] = [
   ['already-linked', 'errAlreadyLinked'],
   ['invalid-claim', 'errInvalidClaim'],
   ['invalid-code', 'errInvalidCode'],
+  ['invalid-country', 'errInvalidCountry'],
 ]
 
 /** Traduce el error de una RPC a un mensaje en español para mostrar a la persona. */

@@ -8,10 +8,12 @@ import { errorText } from './errors'
 interface ClaimProps {
   onDone: () => void
   onBack?: () => void
+  /** Abre "Esta es la pantalla de la casa". */
+  onWall?: () => void
 }
 
 /** Código de unión → apodos libres → elegir el propio. */
-export function Claim({ onDone, onBack }: ClaimProps) {
+export function Claim({ onDone, onBack, onWall }: ClaimProps) {
   const [code, setCode] = useState('')
   const [options, setOptions] = useState<ClaimableMember[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +97,14 @@ export function Claim({ onDone, onBack }: ClaimProps) {
               </div>
             </>
           ))}
+        {onWall && (
+          <p>
+            {t('claimWallHint')}{' '}
+            <button type="button" className="fn-link" onClick={onWall}>
+              {t('onboardingWall')}
+            </button>
+          </p>
+        )}
         {onBack && (
           <button type="button" className="fn-link" onClick={onBack}>
             {t('back')}

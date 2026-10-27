@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { createFamily, saveFamilyCountry, type NewMemberInput } from '../../data/onboarding'
+import { createFamily, type NewMemberInput } from '../../data/onboarding'
 import { t } from '../../i18n/es'
 import { Panel } from '../../ui/Panel'
 import { PALETTE_KEYS, paletteName } from '../../ui/palette'
@@ -36,7 +36,6 @@ export function Setup({ onDone, onBack }: SetupProps) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [code, setCode] = useState<string | null>(null)
-  const [countrySaved, setCountrySaved] = useState(true)
 
   const countries = useMemo(() => countryOptions(), [])
   const zones = useMemo(() => timeZoneOptions(browserTimeZone()), [])
@@ -52,18 +51,9 @@ export function Setup({ onDone, onBack }: SetupProps) {
     if (members.length === 0) return t('errMembersRequired')
     if (members.some((m) => m.nickname.trim() === '' || m.nickname.trim().length > 24))
       return t('errNicknameRequired')
+    const seen = new Set(members.map((m) => m.nickname.trim().toLocaleLowerCase('es')))
+    if (seen.size !== members.length) return t('errNicknameDuplicate')
     return null
-  }
-
-  async function saveCountry(): Promise<boolean> {
-    try {
-      await saveFamilyCountry(country)
-      setCountrySaved(true)
-      return true
-    } catch {
-      setCountrySaved(false)
-      return false
-    }
   }
 
   async function submit(e: FormEvent) {
@@ -88,18 +78,11 @@ export function Setup({ onDone, onBack }: SetupProps) {
         members: input,
       })
       setCode(joinCode)
-      await saveCountry()
     } catch (err) {
       setError(errorText(err))
     } finally {
       setBusy(false)
     }
-  }
-
-  async function retryCountry() {
-    setBusy(true)
-    await saveCountry()
-    setBusy(false)
   }
 
   if (code !== null) {
@@ -111,14 +94,6 @@ export function Setup({ onDone, onBack }: SetupProps) {
           <p>
             {t('joinCodeLabel')}: <span className="fn-code" data-testid="join-code">{code}</span>
           </p>
-          {!countrySaved && (
-            <p role="alert" className="fn-error">
-              {t('countryNotSaved')}{' '}
-              <button type="button" className="fn-link" disabled={busy} onClick={() => void retryCountry()}>
-                {t('retrySaveCountry')}
-              </button>
-            </p>
-          )}
           <button type="button" className="fn-btn" onClick={onDone}>
             {t('continue')}
           </button>
@@ -165,7 +140,8 @@ export function Setup({ onDone, onBack }: SetupProps) {
           <h3>{t('membersTitle')}</h3>
           {members.map((m, i) => (
             <fieldset key={m.key} className="fn-member">
-              <legend>{t('memberN', { n: i + 1 })}</legend>
+              <legend>{i === 0 ? t('memberYou', { n: 1 }) : t('memberN', { n: i + 1 })}</legend>
+              {i === 0 && <p data-testid="member-you">{t('memberYouHint')}</p>}
               <label className="fn-field">
                 {t('nicknameLabel')}
                 <input
