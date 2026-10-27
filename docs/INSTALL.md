@@ -1,6 +1,6 @@
 # Instalar Family Nest para tu familia
 
-Cada familia usa su propia copia: su propio proyecto gratuito de [Supabase](https://supabase.com) (donde viven los datos) y su propio despliegue en [Vercel](https://vercel.com). Ningún dato de tu familia pasa por este repositorio. Necesitas Node.js 22 o superior, `git` y unos 45 minutos la primera vez.
+Cada familia usa su propia copia: su propio proyecto gratuito de [Supabase](https://supabase.com) (donde viven los datos) y su propio despliegue en [Vercel](https://vercel.com). Ningún dato de tu familia pasa por este repositorio. Necesitas Node.js 24 o superior y `git`.
 
 ## 1. Crear tu proyecto de Supabase
 
@@ -24,7 +24,7 @@ La app inicia sesión con un código de 6 dígitos que llega al correo.
    <p>Vale 10 minutos. Si no lo pediste, ignora este mensaje.</p>
    ```
 
-3. **SMTP propio.** Supabase ahora exige un SMTP propio para editar las plantillas y para que el envío sea confiable (el correo integrado es solo de pruebas y tiene un límite muy bajo por hora). En **Authentication → Emails → SMTP Settings** activa *Custom SMTP*:
+3. **SMTP propio.** En octubre de 2026 el panel de Supabase exigía configurar un SMTP propio antes de poder editar las plantillas de correo; el correo integrado es solo para pruebas y tiene un límite muy bajo de envíos por hora. En **Authentication → Emails → SMTP Settings** activa *Custom SMTP*:
    - Para una sola familia basta una cuenta de Gmail con una **contraseña de aplicación** (requiere verificación en dos pasos): servidor `smtp.gmail.com`, puerto `465`, usuario tu correo, contraseña la de aplicación.
    - Un proveedor transaccional (Resend, Brevo, Postmark…) es mejor: más entregabilidad y no ata el envío a una cuenta personal.
 
@@ -49,10 +49,12 @@ npx supabase db push
 3. Despliega. Obtendrás una dirección `https://tu-proyecto.vercel.app`.
 4. **Después de desplegar**, vuelve a Supabase → **Authentication → URL Configuration**: pon esa dirección en **Site URL** y agrégala en **Redirect URLs**.
 
-## 4. Abrir, configurar la familia y repartir el código
+## 4. Abrir y configurar la familia
 
-1. Abre la dirección. La primera vez la app te pide configurar la familia: nombre, país, zona horaria y los miembros (apodo, color, cumpleaños).
-2. Reparte el **código de unión** a cada persona: cada teléfono lo escribe una vez, elige su apodo libre y queda ligado a esa cuenta.
+1. **La persona que crea la familia** abre la dirección. La app pide iniciar sesión (**Iniciar sesión**): escribe su **Correo electrónico**, toca **Enviar código**, escribe el **Código de verificación** de 6 dígitos que llega al correo y toca **Entrar**.
+2. Como todavía no existe ninguna familia, la app abre **Configurar la familia**. Llena: **Nombre de la familia**, **Zona horaria**, **País de los festivos** y la lista de **Miembros**. Cada miembro lleva **Apodo**, **Color** y **Cumpleaños (opcional)**; con **Agregar miembro** se suman los que hagan falta. El primer miembro aparece como **Miembro 1 · Este eres tú**: tu cuenta queda ligada a él. Toca **Crear familia**.
+3. La app muestra **Familia creada** con el **Código de unión**. Anótalo y compártelo con la familia: sirve para que cada persona se una desde su teléfono y para registrar la pantalla de la casa.
+4. **Cada otra persona**, desde su teléfono: abre la dirección, inicia sesión con su propio correo (mismo paso 1) y, como la familia ya existe, la app muestra **Unirme con un código**. Escribe el **Código de unión de la familia**, toca **Buscar**, y en **Elige tu apodo** toca su apodo. Esa cuenta queda ligada a ese miembro.
 
 ## 5. Instalar en cada teléfono
 
@@ -61,7 +63,7 @@ npx supabase db push
 
 ## 6. Pantalla de la casa (la pared)
 
-En el monitor o tableta de la pared, abre la app y elige la opción **"Esta es la pantalla de la casa"**. Ocupa todo el monitor y tiene botón de pantalla completa.
+En el monitor o tableta de la pared, abre la dirección e inicia sesión con un correo que no sea el de ningún miembro (una cuenta ligada a un miembro se trata como teléfono). En **Unirme con un código** toca **Esta es la pantalla de la casa**. Completa **Código de unión de la familia**, opcionalmente **Nombre de la pantalla (opcional)**, y toca **Registrar pantalla**. La pantalla ocupa todo el monitor; el botón **Pantalla completa** la lleva a pantalla completa.
 
 ## Límites del plan gratuito
 

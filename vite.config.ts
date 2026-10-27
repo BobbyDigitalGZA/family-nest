@@ -36,6 +36,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['icons/source.svg'],
         navigateFallback: '/index.html',
+        // Defensive: these paths belong to Supabase on another origin, so they should never reach the app shell anyway.
         navigateFallbackDenylist: [/^\/rest\//, /^\/auth\//, /^\/rpc\//],
         cleanupOutdatedCaches: true,
       },
