@@ -38,7 +38,7 @@ npx supabase link --project-ref <tu-project-ref>
 npx supabase db push
 ```
 
-`db push` aplica en orden `supabase/migrations/0001` a `0005`. **No uses `--include-seed`**: la semilla es una familia inventada para pruebas y bloquearía tu primera configuración. Tu base debe quedar vacía de datos hasta que configures la familia en el paso 4.
+`db push` aplica en orden `supabase/migrations/0001` a `0006`. **No uses `--include-seed`**: la semilla es una familia inventada para pruebas y bloquearía tu primera configuración. Tu base debe quedar vacía de datos hasta que configures la familia en el paso 4.
 
 ## 3. Desplegar en Vercel
 
