@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#f7ede6"/>
+  <!-- Mark kept inside the central 60 % so it survives a maskable crop -->
+  <path d="M256 140 L366 232 H146 Z" fill="#f7c6d9" stroke="#e197b6" stroke-width="10" stroke-linejoin="round"/>
+  <circle cx="214" cy="290" r="26" fill="#bfd9f5" stroke="#8fb4de" stroke-width="8"/>
+  <circle cx="256" cy="282" r="26" fill="#c9ecd6" stroke="#8fcaa6" stroke-width="8"/>
+  <circle cx="298" cy="290" r="26" fill="#d6c8f5" stroke="#a994de" stroke-width="8"/>
+  <path d="M160 288 H352 Q352 372 256 372 Q160 372 160 288 Z" fill="#d6c8f5" stroke="#a994de" stroke-width="10" stroke-linejoin="round"/>
+</svg>

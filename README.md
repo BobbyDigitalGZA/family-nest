@@ -15,7 +15,16 @@ A shared home for a family's tasks, calendar and weekly progress. It runs as an 
 
 ## How a family will install it
 
-Each family runs its own copy. Their data lives in their own free [Supabase](https://supabase.com) project, and none of it ever goes into this repository. Step-by-step setup instructions will come with the first release.
+Each family runs its own copy. Their data lives in their own free [Supabase](https://supabase.com) project, and none of it ever goes into this repository. Setup guide (Spanish): [docs/INSTALL.md](docs/INSTALL.md). Security: [SECURITY.md](SECURITY.md).
+
+## Desarrollo
+
+- `npm run dev` usa `.env.local` (el proyecto real).
+- Para el proyecto de pruebas: `npx vite --mode test` (usa `.env.test.local`) y `node scripts/db-push-test.mjs` para empujar migraciones y la semilla inventada.
+  El script solo actúa si el ref de `VITE_SUPABASE_URL` es igual a `SUPABASE_TEST_REF` (en el mismo `.env.test.local`); el host del pooler se puede cambiar con `SUPABASE_POOLER_HOST`.
+- Revisión de permisos (RLS): `npx tsx scripts/rls-check.ts`.
+- Pruebas y chequeos: `npx vitest run`, `npx tsc -b`, `npm run lint`, `npm run check:private`.
+- Íconos de la PWA: edita `public/icons/source.svg` y corre `npm run icons`.
 
 ---
 

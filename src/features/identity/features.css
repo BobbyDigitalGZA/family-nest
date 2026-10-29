@@ -1,0 +1,26 @@
+/* Pantallas de acceso e identidad: piezas de arcilla sobre los tokens. */
+.fn-screen { max-width: 520px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 16px; }
+.fn-title { margin: 0 0 12px; font-size: var(--primitive-fontSize-2xl); }
+.fn-field { display: grid; gap: 4px; margin-bottom: 12px; color: var(--color-texto-apagado); }
+.fn-field input, .fn-field select {
+  font: inherit; color: var(--color-texto); padding: 10px 12px; border: 0;
+  border-radius: var(--primitive-radius-fila); background: var(--primitive-color-arcilla-200);
+  box-shadow: var(--primitive-shadow-hundir-suave);
+}
+.fn-btn, .fn-option {
+  font: inherit; color: var(--color-texto); border: 0; cursor: pointer; min-height: 44px;
+  padding: 10px 18px; border-radius: var(--chip-radius); box-shadow: var(--primitive-shadow-elevar-1);
+  background: var(--primitive-color-lilac-base);
+}
+.fn-btn:disabled { opacity: .55; cursor: default; }
+.fn-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.fn-link { font: inherit; background: none; border: 0; color: var(--color-texto-apagado); text-decoration: underline; cursor: pointer; padding: 8px; }
+.fn-error { color: var(--color-texto); background: var(--primitive-color-pink-base); border-radius: var(--primitive-radius-fila); padding: 8px 12px; margin: 0 0 12px; }
+.fn-member { display: grid; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--primitive-color-arcilla-900); }
+.fn-code { font-size: var(--primitive-fontSize-2xl); letter-spacing: .2em; font-weight: 600; }
+.fn-banner {
+  position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px);
+  padding: 6px 8px 6px 14px; border-radius: var(--chip-radius); color: var(--color-texto);
+  background: var(--primitive-color-pink-base); box-shadow: var(--primitive-shadow-elevar-1);
+}

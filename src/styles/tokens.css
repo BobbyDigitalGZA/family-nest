@@ -1,0 +1,136 @@
+/* Design Tokens - Auto-generated */
+/* Do not edit directly - modify tokens.json instead */
+
+/* === PRIMITIVES === */
+:root {
+  --primitive-color-arcilla-100: #fffefd;
+  --primitive-color-arcilla-200: #fffdfb;
+  --primitive-color-arcilla-300: #f7ede6;
+  --primitive-color-arcilla-400: #f4eae3;
+  --primitive-color-arcilla-500: #f3e8e0;
+  --primitive-color-arcilla-600: #f1e6de;
+  --primitive-color-arcilla-700: #efe2d9;
+  --primitive-color-arcilla-750: #efe4dc;
+  --primitive-color-arcilla-800: #ece1d9;
+  --primitive-color-arcilla-900: #e8dbd2;
+  --primitive-color-tinta-base: #4a4458;
+  --primitive-color-tinta-apagada: #655e76;
+  --primitive-color-tinta-apagada-v0: #8d869a;
+  --primitive-color-blue-base: #bfd9f5;
+  --primitive-color-blue-hondo: #8fb4de;
+  --primitive-color-pink-base: #f7c6d9;
+  --primitive-color-pink-hondo: #e197b6;
+  --primitive-color-lilac-base: #d6c8f5;
+  --primitive-color-lilac-hondo: #a994de;
+  --primitive-color-lilac-claro: #f4ecff;
+  --primitive-color-green-base: #c9ecd6;
+  --primitive-color-green-hondo: #8fcaa6;
+  --primitive-color-hecho-claro: #b5e6c8;
+  --primitive-color-hecho-base: #79c497;
+  --primitive-color-sol-claro: #fff9e8;
+  --primitive-color-sol-base: #ffe9b8;
+  --primitive-color-blanco: #ffffff;
+  --primitive-radius-casilla: 7px;
+  --primitive-radius-celda: 12px;
+  --primitive-radius-fila: 14px;
+  --primitive-radius-evento: 16px;
+  --primitive-radius-pildora: 22px;
+  --primitive-radius-pantalla: 26px;
+  --primitive-radius-panel: 28px;
+  --primitive-radius-circulo: 50%;
+  --primitive-spacing-1: 2px;
+  --primitive-spacing-2: 7px;
+  --primitive-spacing-3: 8px;
+  --primitive-spacing-4: 10px;
+  --primitive-spacing-5: 12px;
+  --primitive-spacing-6: 14px;
+  --primitive-spacing-7: 16px;
+  --primitive-spacing-8: 20px;
+  --primitive-fontFamily-base: 'Segoe UI', system-ui, sans-serif;
+  --primitive-fontSize-xs: 11px;
+  --primitive-fontSize-sm: 12px;
+  --primitive-fontSize-md: 13px;
+  --primitive-fontSize-lg: 14px;
+  --primitive-fontSize-xl: 16px;
+  --primitive-fontSize-2xl: 22px;
+  --primitive-fontSize-3xl: 26px;
+  --primitive-fontWeight-normal: 400;
+  --primitive-fontWeight-bold: 700;
+  --primitive-shadow-elevar-1: 8.5px 8.5px 17px rgba(140,115,105,.43), -6.8px -6.8px 13.6px rgba(255,255,255,.95);
+  --primitive-shadow-elevar-2: 10.2px 10.2px 20.4px rgba(140,115,105,.54), -6.8px -6.8px 15.3px rgba(255,255,255,.9);
+  --primitive-shadow-elevar-3: 13.6px 13.6px 27.2px rgba(140,115,105,.68), -10.2px -10.2px 20.4px #fff;
+  --primitive-shadow-elevar-4: 17px 17px 34px rgba(140,115,105,.65), -11.9px -11.9px 27.2px rgba(255,255,255,.95);
+  --primitive-shadow-elevar-5: 25.5px 25.5px 54.4px rgba(140,115,105,.71), -18.7px -18.7px 44.2px rgba(255,255,255,.95);
+  --primitive-shadow-brillo-panel: inset 6.7px 6.7px 15px #fff, inset -11.4px -11.4px 24.7px rgba(185,160,148,.30);
+  --primitive-shadow-hundir-suave: inset 5.7px 5.7px 11.4px rgba(140,115,105,.22), inset -3px -3px 6px #fff;
+  --primitive-shadow-hundir: inset 5.7px 5.7px 11.4px rgba(140,115,105,.3), inset -3px -3px 6px #fff;
+  --primitive-shadow-hundir-hondo: inset 7.6px 7.6px 15.2px rgba(140,115,105,.4), inset -3px -3px 6px rgba(255,255,255,.9);
+  --primitive-shadow-hundir-casilla: inset 5.7px 5.7px 11.4px rgba(140,115,105,.4), inset -2px -2px 4px #fff;
+  --primitive-shadow-inflar-hecho: 5.1px 5.1px 10.2px rgba(60,120,85,.6), inset 3.3px 3.3px 5px rgba(255,255,255,.7);
+  --primitive-shadow-apretar: inset 6px 6px 12px rgba(140,115,105,.38), inset -4px -4px 8px rgba(255,255,255,.75);
+}
+
+/* === SEMANTIC === */
+:root {
+  --color-fondo: #ece1d9;
+  --color-superficie: #f7ede6;
+  --color-hundido: #f1e6de;
+  --color-texto: #4a4458;
+  --color-texto-apagado: #655e76;
+  --color-hecho: #79c497;
+  --color-hecho-claro: #b5e6c8;
+  --color-clima: #ffe9b8;
+  --color-clima-claro: #fff9e8;
+  --color-persona-blue: #bfd9f5;
+  --color-persona-blue-hondo: #8fb4de;
+  --color-persona-pink: #f7c6d9;
+  --color-persona-pink-hondo: #e197b6;
+  --color-persona-lilac: #d6c8f5;
+  --color-persona-lilac-hondo: #a994de;
+  --color-persona-green: #c9ecd6;
+  --color-persona-green-hondo: #8fcaa6;
+  --color-foco: #a994de;
+}
+
+/* === COMPONENTS === */
+:root {
+  --panel-radius: 28px;
+  --panel-bg: linear-gradient(145deg, #fffefd 0%, #f7ede6 55%, #efe2d9 100%);
+  --panel-shadow: 25.5px 25.5px 54.4px rgba(140,115,105,.71), -18.7px -18.7px 44.2px rgba(255,255,255,.95), inset 6.7px 6.7px 15px #fff, inset -11.4px -11.4px 24.7px rgba(185,160,148,.30);
+  --panel-padding: 14px;
+  --chip-radius: 22px;
+  --chip-padding: 9px 12px;
+  --chip-font-size: 13px;
+  --chip-outline-activo: 3px solid #fff;
+  --evento-radius: 16px;
+  --evento-padding: 8px 10px;
+  --evento-font-size: 12px;
+  --tarea-radius: 14px;
+  --tarea-padding: 6px 8px;
+  --tarea-bg: linear-gradient(145deg, #fffdfb, #f3e8e0);
+  --tarea-bg-hecha: #f4eae3;
+  --tarea-shadow-hecha: inset 5.7px 5.7px 11.4px rgba(140,115,105,.18), inset -3px -3px 6px rgba(255,255,255,.9);
+  --casilla-size: 18px;
+  --casilla-radius: 7px;
+  --casilla-bg: #f1e6de;
+  --casilla-bg-hecha: linear-gradient(145deg, #b5e6c8, #79c497);
+  --casilla-check: #4a4458;
+  --barra-height: 14px;
+  --barra-radius: 10px;
+  --barra-riel: #e8dbd2;
+  --pestana-radius: 16px;
+  --pestana-padding: 8px 16px;
+  --celda-height: 34px;
+  --celda-radius: 12px;
+  --microfono-size: 40px;
+  --microfono-bg: linear-gradient(145deg, #f4ecff, #d6c8f5);
+  --foco-ancho: 4px;
+  --foco-respiracion: 2.2s;
+  --toque-escala: .96;
+  --toque-escala-grande: .985;
+  --toque-escala-casilla: .85;
+  --toque-hundir: 80ms;
+  --toque-rebote: 220ms;
+  --toque-curva: cubic-bezier(.34,1.56,.64,1);
+  --toque-minimo: 120ms;
+}
