@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { getAuth } from '../../data/client'
 import { addMember, removeMember, updateMember } from '../../data/members'
 import type { Member } from '../../domain/types'
 import { t } from '../../i18n/es'
@@ -213,9 +214,64 @@ function AddMember({ members }: { members: Member[] }) {
   )
 }
 
+/** Cierra la sesión solo en este equipo; sin ella no hay forma de entrar con otra cuenta. */
+function SignOut({ wall }: { wall: boolean }) {
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function confirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await getAuth().signOut({ scope: 'local' })
+      if (res.error) throw new Error(res.error.message)
+      // La sesión cae por onAuthStateChange y la app vuelve a «Iniciar sesión».
+    } catch {
+      setError(t('errSignOut'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Panel>
+      <h3 className="fm-sub">{t('sessionTitle')}</h3>
+      {error && (
+        <p role="alert" className="fn-error">
+          {error}
+        </p>
+      )}
+      {asking ? (
+        <div className="fm-form">
+          <p>{t(wall ? 'signOutAskWall' : 'signOutAsk')}</p>
+          <div className="fm-actions">
+            <button type="button" className="fn-btn" disabled={busy} onClick={() => void confirm()}>
+              {t('signOutYes')}
+            </button>
+            <button
+              type="button"
+              className="fn-link"
+              onClick={() => {
+                setError(null)
+                setAsking(false)
+              }}
+            >
+              {t('cancel')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="fn-btn" onClick={() => setAsking(true)}>
+          {t('signOut')}
+        </button>
+      )}
+    </Panel>
+  )
+}
+
 /** Familia: el código de unión y los miembros (agregar, cambiar apodo o color, quitar). */
 export function FamilyMembers({ onBack }: { onBack: () => void }) {
-  const { snapshot } = useTasksData()
+  const { snapshot, readOnly } = useTasksData()
   const { device, actorId } = useActor()
   const members = snapshot.members.filter((m) => m.active)
   // En el teléfono quien actúa es siempre la persona de la cuenta.
@@ -256,6 +312,7 @@ export function FamilyMembers({ onBack }: { onBack: () => void }) {
         </ul>
       </Panel>
       <AddMember members={members} />
+      {!readOnly && <SignOut wall={device === 'wall'} />}
     </main>
   )
 }
