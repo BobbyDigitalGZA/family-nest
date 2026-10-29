@@ -21,6 +21,7 @@ const BY_CODE: [string, TKey][] = [
   ['nickname-invalid', 'errNicknameRequired'],
   ['color-invalid', 'errColorInvalid'],
   ['remove-self', 'errRemoveSelf'],
+  ['remove-last', 'errRemoveLast'],
   ['task-not-found', 'errTaskNotFound'],
   ['title-required', 'errTitleRequired'],
   ['date-required', 'errDateRequired'],

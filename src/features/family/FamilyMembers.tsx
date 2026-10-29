@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { addMember, updateMember } from '../../data/members'
+import { addMember, removeMember, updateMember } from '../../data/members'
 import type { Member } from '../../domain/types'
 import { t } from '../../i18n/es'
 import { Panel } from '../../ui/Panel'
@@ -66,7 +66,12 @@ function MemberRow({ member, others, own, canRemove }: { member: Member; others:
       setError(problem)
       return
     }
-    void act(() => updateMember(member.id, { nickname: mode.nickname.trim(), color: mode.color }))
+    void act((actorId) => updateMember(member.id, { nickname: mode.nickname.trim(), color: mode.color }, actorId))
+  }
+
+  function cancel() {
+    setError(null)
+    setMode({ kind: 'view' })
   }
 
   return (
@@ -119,7 +124,7 @@ function MemberRow({ member, others, own, canRemove }: { member: Member; others:
             <button type="submit" className="fn-btn" disabled={busy}>
               {t('saveMember')}
             </button>
-            <button type="button" className="fn-link" onClick={() => setMode({ kind: 'view' })}>
+            <button type="button" className="fn-link" onClick={cancel}>
               {t('cancel')}
             </button>
           </div>
@@ -127,7 +132,7 @@ function MemberRow({ member, others, own, canRemove }: { member: Member; others:
       )}
       {mode.kind === 'remove' && (
         <div className="fm-form">
-          <p>{t('removeMemberAsk', { nickname: member.nickname })}</p>
+          <p>{t(member.authUserId ? 'removeMemberAskLinked' : 'removeMemberAsk', { nickname: member.nickname })}</p>
           <div className="fm-actions">
             <button
               type="button"
@@ -136,13 +141,13 @@ function MemberRow({ member, others, own, canRemove }: { member: Member; others:
               onClick={() =>
                 void act(async (actorId) => {
                   if (actorId === member.id) throw new Error('remove-self')
-                  await updateMember(member.id, { active: false })
+                  await removeMember(member.id, actorId)
                 })
               }
             >
               {t('removeMemberYes')}
             </button>
-            <button type="button" className="fn-link" onClick={() => setMode({ kind: 'view' })}>
+            <button type="button" className="fn-link" onClick={cancel}>
               {t('cancel')}
             </button>
           </div>
@@ -157,7 +162,9 @@ function AddMember({ members }: { members: Member[] }) {
   const { run, error, setError } = useRunAction()
   const firstFree = PALETTE_KEYS.find((k) => !members.some((m) => m.color === k)) ?? PALETTE_KEYS[0]
   const [nickname, setNickname] = useState('')
-  const [color, setColor] = useState<string>(firstFree)
+  // Sin elección propia, el color propuesto es el primero que nadie usa (se recalcula tras cada alta).
+  const [picked, setPicked] = useState<string | null>(null)
+  const color = picked ?? firstFree
   const [birthday, setBirthday] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -169,13 +176,14 @@ function AddMember({ members }: { members: Member[] }) {
       return
     }
     setBusy(true)
-    const ok = await run(async () => {
-      await addMember({ nickname: nickname.trim(), color, birthday: birthday === '' ? null : birthday })
+    const ok = await run(async (actorId) => {
+      await addMember({ nickname: nickname.trim(), color, birthday: birthday === '' ? null : birthday }, actorId)
     })
     setBusy(false)
     if (ok) {
       setNickname('')
       setBirthday('')
+      setPicked(null)
     }
   }
 
@@ -192,7 +200,7 @@ function AddMember({ members }: { members: Member[] }) {
           {t('nicknameLabel')}
           <input value={nickname} maxLength={NICKNAME_MAX} disabled={readOnly} onChange={(e) => setNickname(e.target.value)} />
         </label>
-        <ColorSelect value={color} onChange={setColor} />
+        <ColorSelect value={color} onChange={setPicked} />
         <label className="fn-field">
           {t('birthdayLabel')}
           <input type="date" value={birthday} disabled={readOnly} onChange={(e) => setBirthday(e.target.value)} />

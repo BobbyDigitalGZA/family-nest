@@ -187,7 +187,10 @@ async function main(): Promise<void> {
     })
     expect(denied(r3.error), 'rpc con actor de B pasó')
     const r4 = await a.from('member').update({ nickname: 'Hack' }).eq('id', B.members[0]!).select()
-    expect(!r4.error && (r4.data?.length ?? 0) === 0, 'update de miembro ajeno pasó')
+    // Desde 0007 el apodo ya no tiene grant de escritura: la base lo rechaza antes de RLS.
+    expect(denied(r4.error) || (r4.data?.length ?? 0) === 0, 'update de miembro ajeno pasó')
+    const r5 = await a.from('member').update({ birthday: '2030-01-01' }).eq('id', B.members[0]!).select()
+    expect(!r5.error && (r5.data?.length ?? 0) === 0, 'update de columna permitida en miembro ajeno pasó')
     const after = await must(
       admin.from('member').select('nickname').eq('id', B.members[0]!).single(),
       'verify',
@@ -260,28 +263,63 @@ async function main(): Promise<void> {
     expect(denied(twice.error), 'una cuenta reclamó dos miembros')
   })
 
-  await check('add_member: solo su familia, al final del orden, sin apodos repetidos', async () => {
-    const id = await must(a.rpc('add_member', { p_nickname: '  Nuevo ', p_color: 'green', p_birthday: null }), 'add')
-    const row = await must(admin.from('member').select('*').eq('id', id as string).single(), 'verify add')
+  await check('add_member / update_member: solo su familia, validados, sin apodos repetidos', async () => {
+    const add = (client: SupabaseClient, nick: string, color = 'green', actor = actorA) =>
+      client.rpc('add_member', { p_nickname: nick, p_color: color, p_birthday: null, p_actor: actor })
+    const id = (await must(add(a, '  Nuevo '), 'add')) as string
+    const row = await must(admin.from('member').select('*').eq('id', id).single(), 'verify add')
     expect(row.family_id === A.familyId && row.nickname === 'Nuevo' && row.auth_user_id === null, 'alta mal hecha')
     expect(row.sort_order === 3, `sort_order ${row.sort_order}`)
-    const dup = await a.rpc('add_member', { p_nickname: 'nuevo', p_color: 'blue', p_birthday: null })
+    const dup = await add(a, 'nuevo', 'blue')
     expect(denied(dup.error) && dup.error!.message.includes('nickname-taken'), 'apodo repetido pasó')
-    const ren = await a.from('member').update({ nickname: 'NUEVO ' }).eq('id', A.members[1]!)
-    expect(denied(ren.error), 'renombrar a un apodo repetido pasó')
-    for (const [nick, color] of [['', 'blue'], ['x'.repeat(25), 'blue'], ['Bien', 'Azul!']]) {
-      const bad = await a.rpc('add_member', { p_nickname: nick, p_color: color, p_birthday: null })
-      expect(denied(bad.error), `alta inválida pasó: ${nick.length} ${color}`)
+    for (const [nick, color] of [['', 'blue'], ['   ', 'blue'], ['x'.repeat(25), 'blue'], ['Bien', 'Azul!']]) {
+      expect(denied((await add(a, nick!, color)).error), `alta inválida pasó: ${nick!.length} ${color}`)
     }
-    const outsider = await userD.client.rpc('add_member', { p_nickname: 'Intruso', p_color: 'blue', p_birthday: null })
-    expect(denied(outsider.error), 'una cuenta sin familia agregó un miembro')
+    // Ya no hay escritura directa de apodo, color ni baja.
+    for (const values of [{ nickname: 'Directo' }, { color: 'pink' }, { active: false }]) {
+      const direct = await a.from('member').update(values).eq('id', A.members[2]!).select()
+      expect(denied(direct.error) || (direct.data?.length ?? 0) === 0, `update directo pasó: ${Object.keys(values)[0]}`)
+    }
+    const upd = (p: Record<string, unknown>) => a.rpc('update_member', { p_actor: actorA, ...p })
+    const taken = await upd({ p_member: A.members[2], p_nickname: 'NUEVO ', p_color: 'blue' })
+    expect(denied(taken.error) && taken.error!.message.includes('nickname-taken'), 'renombrar a un apodo repetido pasó')
+    expect(denied((await upd({ p_member: A.members[2], p_nickname: '  ', p_color: 'blue' })).error), 'apodo vacío pasó')
+    const before = await must(admin.from('member').select('nickname').eq('id', A.members[2]!).single(), 'nick')
+    await must(upd({ p_member: A.members[2], p_nickname: 'Tercero', p_color: 'pink' }), 'rename')
+    await must(upd({ p_member: A.members[2], p_nickname: before.nickname, p_color: 'blue' }), 'rename back')
+    // Otra familia: ni con un actor ajeno, ni sobre miembros ajenos.
+    expect(denied((await add(a, 'Cruce', 'blue', B.members[0]!)).error), 'A agregó con un actor de B')
+    expect(denied((await upd({ p_member: B.members[0], p_nickname: 'Cruce', p_color: 'blue' })).error), 'A renombró a B')
+    expect(denied((await a.rpc('remove_member', { p_member: B.members[0], p_actor: actorA })).error), 'A quitó a B')
+    const inB = await must(admin.from('member').select('nickname, active').eq('family_id', B.familyId), 'B members')
+    expect(inB.length === 3 && inB.every((m) => m.active && m.nickname !== 'Cruce'), 'la familia B cambió')
+    expect(denied((await add(userD.client, 'Intruso')).error), 'una cuenta sin familia agregó un miembro')
     const anon = createClient(url!, publishable!, opts)
-    expect(denied((await anon.rpc('add_member', { p_nickname: 'Anon', p_color: 'blue', p_birthday: null })).error), 'anon agregó')
-    const inB = await must(admin.from('member').select('id').eq('family_id', B.familyId), 'B members')
-    expect(inB.length === 3, 'la familia B cambió')
-    await must(admin.from('member').update({ active: false }).eq('id', id as string), 'baja')
-    const again = await a.rpc('add_member', { p_nickname: 'Nuevo', p_color: 'green', p_birthday: null })
-    expect(!again.error, `tras la baja el apodo no quedó libre: ${again.error?.message}`)
+    expect(denied((await add(anon, 'Anon')).error), 'anon agregó')
+  })
+
+  await check('remove_member: nadie se quita a sí mismo; la cuenta quitada queda libre y vuelve a unirse', async () => {
+    const userE = await newUser('e')
+    const add = (nick: string) =>
+      a.rpc('add_member', { p_nickname: nick, p_color: 'lilac', p_birthday: null, p_actor: actorA })
+    const quitar = (member: string, actor = actorA) => a.rpc('remove_member', { p_member: member, p_actor: actor })
+    const cuarto = (await must(add('Cuarto'), 'add cuarto')) as string
+    await must(userE.client.rpc('claim_member', { p_member: cuarto, p_code: A.code }), 'E reclama')
+    const self = await quitar(actorA)
+    expect(denied(self.error) && self.error!.message.includes('remove-self'), 'el actor se quitó a sí mismo')
+    // Otro actor de la misma cuenta tampoco quita al miembro ligado a esa cuenta.
+    const own = await quitar(actorA, cuarto)
+    expect(denied(own.error) && own.error!.message.includes('remove-self'), 'la cuenta quitó a su propio miembro')
+    await must(quitar(cuarto), 'quitar cuarto')
+    const gone = await must(admin.from('member').select('active, auth_user_id').eq('id', cuarto).single(), 'verify')
+    expect(gone.active === false && gone.auth_user_id === null, 'la baja no soltó la cuenta')
+    const seen = await must(userE.client.from('task').select('id'), 'E select')
+    expect(seen.length === 0, 'la cuenta quitada sigue viendo la familia')
+    expect(denied((await quitar(cuarto)).error), 'quitar dos veces pasó')
+    const quinto = (await must(add('Cuarto'), 'el apodo quedó libre')) as string
+    const back = await userE.client.rpc('claim_member', { p_member: quinto, p_code: A.code })
+    expect(!back.error, `la cuenta quitada no pudo volver: ${back.error?.message}`)
+    await must(admin.from('member').update({ active: false, auth_user_id: null }).eq('id', quinto), 'limpiar')
   })
 
   await check('rpc_complete dos veces: una sola fila y un solo evento', async () => {
