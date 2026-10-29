@@ -1,10 +1,13 @@
 /* Fila de tarea, nueva tarea y detalle: piezas de arcilla sobre los tokens. */
+/* En todo ancho los datos van debajo del título y la ✕ en la misma fila: en una pantalla ancha
+   una columna propia los dejaba lejos de su tarea. */
 .tk-row {
   list-style: none;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: var(--primitive-spacing-4);
+  row-gap: 0;
   padding: var(--primitive-spacing-2) var(--primitive-spacing-4);
   border-radius: var(--primitive-radius-fila);
   color: var(--color-texto);
@@ -14,6 +17,8 @@
   color: var(--color-texto-apagado);
 }
 .tk-check {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   display: inline-grid;
   place-items: center;
 }
@@ -32,11 +37,18 @@
   cursor: pointer;
 }
 .tk-title {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: start;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   text-align: left;
   padding: var(--primitive-spacing-3) 0;
   min-height: 32px;
 }
 .tk-del {
+  grid-column: 3;
+  grid-row: 1 / span 2;
   color: var(--color-texto-apagado);
   min-width: 32px;
   min-height: 32px;
@@ -46,6 +58,8 @@
   cursor: default;
 }
 .tk-meta {
+  grid-column: 2;
+  grid-row: 2;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -67,16 +81,8 @@
   grid-column: 1 / -1;
 }
 
-/* iPhone: etiqueta y leyenda bajan a una segunda línea; todo lo tocable llega a 44 px. */
+/* iPhone: todo lo tocable llega a 44 px. */
 @media (max-width: 699px) {
-  .tk-row {
-    grid-template-columns: auto 1fr auto;
-    row-gap: 0;
-  }
-  .tk-meta {
-    grid-column: 2 / -1;
-    grid-row: 2;
-  }
   .tk-title,
   .tk-del {
     min-height: 44px;
