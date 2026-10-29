@@ -58,6 +58,8 @@ export interface AuthLike {
     token: string
     type: 'email'
   }): PromiseLike<{ error: DbError | null }>
+  /** `local`: solo este equipo; las sesiones de los demás equipos siguen abiertas. */
+  signOut(args: { scope: 'local' }): PromiseLike<{ error: DbError | null }>
 }
 
 let client: DataClient | null = null

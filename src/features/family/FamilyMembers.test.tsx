@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
+import { setAuthForTests, type AuthLike } from '../../data/client'
 import * as members from '../../data/members'
 import type { FamilySnapshot } from '../../data/repo'
 import { familyFromRow } from '../../data/mappers'
@@ -135,4 +136,54 @@ test('tras agregar, el color propuesto pasa al siguiente libre', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Agregar' }))
   rerender(view({ ...snap, members: [...snap.members, member('m3', 'Sol', { sortOrder: 2, color: 'lilac' })] }))
   expect(screen.getAllByLabelText('Color').at(-1)).toHaveValue('green')
+})
+
+function fakeAuth(signOut: AuthLike['signOut']): AuthLike {
+  return {
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    signInWithOtp: () => Promise.resolve({ error: null }),
+    verifyOtp: () => Promise.resolve({ error: null }),
+    signOut,
+  }
+}
+
+test('cerrar sesión pide confirmación y cierra solo en este equipo', async () => {
+  const signOut = vi.fn(() => Promise.resolve({ error: null }))
+  setAuthForTests(fakeAuth(signOut))
+  renderScreen()
+  await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+  expect(screen.getByText(/Para volver a entrar necesitas tu correo/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+  expect(signOut).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Sí, cerrar sesión' }))
+  expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
+  setAuthForTests(null)
+})
+
+test('si cerrar sesión falla, lo dice y deja reintentar', async () => {
+  setAuthForTests(fakeAuth(() => Promise.resolve({ error: { message: 'network' } })))
+  renderScreen()
+  await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Sí, cerrar sesión' }))
+  expect(await screen.findByText('No se pudo cerrar la sesión. Inténtalo de nuevo.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Sí, cerrar sesión' })).toBeEnabled()
+  setAuthForTests(null)
+})
+
+test('en la pantalla de la casa avisa que deja de serlo; en la demo no hay botón', async () => {
+  const snap = snapshotWith()
+  const { unmount } = render(
+    <IdentityProvider device="wall" memberId={null} members={snap.members}>
+      <TasksProvider value={{ snapshot: snap, reload: vi.fn(), readOnly: false }}>
+        <FamilyMembers onBack={vi.fn()} />
+      </TasksProvider>
+    </IdentityProvider>,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+  expect(screen.getByText(/Deja de ser la pantalla de la casa/)).toBeInTheDocument()
+  unmount()
+  renderScreen(snapshotWith(), { readOnly: true })
+  expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).toBeNull()
 })

@@ -22,6 +22,7 @@ function fakeAuth(over: Partial<AuthLike> = {}): AuthLike {
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
     signInWithOtp: () => Promise.resolve({ error: null }),
     verifyOtp: () => Promise.resolve({ error: null }),
+    signOut: () => Promise.resolve({ error: null }),
     ...over,
   }
 }
