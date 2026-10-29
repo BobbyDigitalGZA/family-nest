@@ -19,3 +19,19 @@
 .fv-ribbon { padding: 4px 6px 10px; margin: -4px -6px -10px; }
 .fv-ribbon { flex-wrap: wrap; overflow: visible; padding: 0; margin: 0; }
 .fv-pill { flex: none; }
+
+/* Familia: código de unión y miembros. */
+.fm-root { height: 100%; overflow: auto; padding: 16px; box-sizing: border-box; color: var(--color-texto); display: grid; gap: 16px; align-content: start; max-width: 640px; margin: 0 auto; }
+.fm-top { display: flex; align-items: center; gap: 12px; }
+.fm-title, .fm-sub { margin: 0 0 8px; }
+.fm-hint { margin: 8px 0 0; color: var(--color-texto-apagado); }
+.fm-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.fm-row { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--primitive-color-arcilla-900); }
+.fm-row:last-child { border-bottom: 0; }
+.fm-line { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fm-swatch { flex: none; width: 28px; height: 28px; border-radius: 50%; box-shadow: var(--primitive-shadow-elevar-1); }
+.fm-name { flex: 1; min-width: 0; font-weight: 600; }
+.fm-state { flex: none; color: var(--color-texto-apagado); }
+.fm-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.fm-form { display: grid; gap: 4px; padding-top: 6px; }
+.fm-form p { margin: 0; }

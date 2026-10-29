@@ -36,7 +36,9 @@ test('Setup acepta cualquier número de miembros, guarda el país y muestra el c
   // El país viaja dentro de create_family (atómico): no hay un UPDATE aparte.
   expect(call.p_country_code).toBe('MX')
   expect(fake.updates('family')).toHaveLength(0)
-})
+  // Escribe seis apodos en un formulario con la lista entera de zonas horarias: con la suite
+  // completa en paralelo pasa de los 5 s por defecto (y su render colgado rompía la prueba siguiente).
+}, 15_000)
 
 test('Setup exige país y apodos antes de llamar a la base', async () => {
   render(<Setup onDone={() => {}} />)
