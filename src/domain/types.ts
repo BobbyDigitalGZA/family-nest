@@ -64,4 +64,6 @@ export interface Family {
   timeZone: string
   /** 'HH:MM' local time until which yesterday's tasks can still be marked. */
   lateMarkUntil: string
+  /** Código de unión: con él cada persona reclama su apodo o se registra la pantalla de la casa. */
+  joinCode?: string | null
 }

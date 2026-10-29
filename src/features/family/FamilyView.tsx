@@ -16,7 +16,15 @@ import { useToday } from './useToday'
 import { WallFrame } from './WallFrame'
 import './family.css'
 
-function Columns({ onOpenMember, onOpenLog }: { onOpenMember: (id: string) => void; onOpenLog?: () => void }) {
+function Columns({
+  onOpenMember,
+  onOpenLog,
+  onOpenMembers,
+}: {
+  onOpenMember: (id: string) => void
+  onOpenLog?: () => void
+  onOpenMembers?: () => void
+}) {
   const { snapshot, readOnly } = useTasksData()
   const orientation = useWallOrientation()
   const today = useToday(snapshot.family.timeZone)
@@ -52,6 +60,11 @@ function Columns({ onOpenMember, onOpenLog }: { onOpenMember: (id: string) => vo
         {onOpenLog && (
           <button type="button" className="fn-btn" onClick={onOpenLog}>
             {t('logOpen')}
+          </button>
+        )}
+        {onOpenMembers && (
+          <button type="button" className="fn-btn" onClick={onOpenMembers}>
+            {t('familyOpen')}
           </button>
         )}
         <button type="button" className="fn-btn fv-new" disabled={readOnly} onClick={() => setCreating(true)}>
@@ -94,7 +107,15 @@ function Columns({ onOpenMember, onOpenLog }: { onOpenMember: (id: string) => vo
 }
 
 /** Vista familiar: una columna por miembro con sus tareas de hoy y su cumplimiento. */
-export function FamilyView({ onOpenMember, onOpenLog }: { onOpenMember: (memberId: string) => void; onOpenLog?: () => void }) {
+export function FamilyView({
+  onOpenMember,
+  onOpenLog,
+  onOpenMembers,
+}: {
+  onOpenMember: (memberId: string) => void
+  onOpenLog?: () => void
+  onOpenMembers?: () => void
+}) {
   const { backToFamily } = useActor()
   // Volver a la vista familiar termina a la persona elegida.
   useEffect(() => {
@@ -102,7 +123,7 @@ export function FamilyView({ onOpenMember, onOpenLog }: { onOpenMember: (memberI
   }, [backToFamily])
   return (
     <WallFrame>
-      <Columns onOpenMember={onOpenMember} onOpenLog={onOpenLog} />
+      <Columns onOpenMember={onOpenMember} onOpenLog={onOpenLog} onOpenMembers={onOpenMembers} />
     </WallFrame>
   )
 }

@@ -260,6 +260,30 @@ async function main(): Promise<void> {
     expect(denied(twice.error), 'una cuenta reclamó dos miembros')
   })
 
+  await check('add_member: solo su familia, al final del orden, sin apodos repetidos', async () => {
+    const id = await must(a.rpc('add_member', { p_nickname: '  Nuevo ', p_color: 'green', p_birthday: null }), 'add')
+    const row = await must(admin.from('member').select('*').eq('id', id as string).single(), 'verify add')
+    expect(row.family_id === A.familyId && row.nickname === 'Nuevo' && row.auth_user_id === null, 'alta mal hecha')
+    expect(row.sort_order === 3, `sort_order ${row.sort_order}`)
+    const dup = await a.rpc('add_member', { p_nickname: 'nuevo', p_color: 'blue', p_birthday: null })
+    expect(denied(dup.error) && dup.error!.message.includes('nickname-taken'), 'apodo repetido pasó')
+    const ren = await a.from('member').update({ nickname: 'NUEVO ' }).eq('id', A.members[1]!)
+    expect(denied(ren.error), 'renombrar a un apodo repetido pasó')
+    for (const [nick, color] of [['', 'blue'], ['x'.repeat(25), 'blue'], ['Bien', 'Azul!']]) {
+      const bad = await a.rpc('add_member', { p_nickname: nick, p_color: color, p_birthday: null })
+      expect(denied(bad.error), `alta inválida pasó: ${nick.length} ${color}`)
+    }
+    const outsider = await userD.client.rpc('add_member', { p_nickname: 'Intruso', p_color: 'blue', p_birthday: null })
+    expect(denied(outsider.error), 'una cuenta sin familia agregó un miembro')
+    const anon = createClient(url!, publishable!, opts)
+    expect(denied((await anon.rpc('add_member', { p_nickname: 'Anon', p_color: 'blue', p_birthday: null })).error), 'anon agregó')
+    const inB = await must(admin.from('member').select('id').eq('family_id', B.familyId), 'B members')
+    expect(inB.length === 3, 'la familia B cambió')
+    await must(admin.from('member').update({ active: false }).eq('id', id as string), 'baja')
+    const again = await a.rpc('add_member', { p_nickname: 'Nuevo', p_color: 'green', p_birthday: null })
+    expect(!again.error, `tras la baja el apodo no quedó libre: ${again.error?.message}`)
+  })
+
   await check('rpc_complete dos veces: una sola fila y un solo evento', async () => {
     const args = {
       p_task_id: A.taskId,

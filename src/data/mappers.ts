@@ -169,5 +169,6 @@ export function familyFromRow(row: Row): Family {
     timeZone: str(row.time_zone),
     // Postgres `time` comes back as 'HH:MM:SS'.
     lateMarkUntil: str(row.late_mark_until ?? '10:00').slice(0, 5),
+    joinCode: strOrNull(row.join_code),
   }
 }
