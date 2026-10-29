@@ -25,6 +25,9 @@ describe('detalle en palabras, sin identificadores internos', () => {
   test('asignó: de quién a quién y el cambio de «de la casa»', () => {
     expect(detail('assigned', { from: 'm1', to: 'm2', household_from: false, household_to: false })).toBe('de Ana a Beto')
     expect(detail('assigned', { from: 'm1', to: 'm1', household_from: false, household_to: true })).toBe('pasa a ser de la casa')
+    expect(detail('assigned', { from: null, to: 'm2', household_from: true, household_to: false })).toBe(
+      'para Beto; deja de ser de la casa',
+    )
     expect(detail('assigned', { from: 'm1', to: 'm2', household_from: true, household_to: false, split_from: 'u' })).toBe(
       'de Ana a Beto; deja de ser de la casa',
     )

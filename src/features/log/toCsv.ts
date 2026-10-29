@@ -76,7 +76,10 @@ export function describeDetail(e: EventRow, nick: Map<string, string>): string {
     case 'assigned': {
       const from = who(p.from)
       const to = who(p.to)
-      if (from && to && p.from !== p.to) parts.push(t('csvAssignee', { from, to }))
+      if (p.from !== p.to) {
+        if (from && to) parts.push(t('csvAssignee', { from, to }))
+        else if (to) parts.push(t('csvFor', { nickname: to }))
+      }
       if (typeof p.household_to === 'boolean' && p.household_to !== p.household_from) {
         parts.push(t(p.household_to ? 'csvHouseholdOn' : 'csvHouseholdOff'))
       }
