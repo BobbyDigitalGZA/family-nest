@@ -137,6 +137,8 @@ describe('completar', () => {
 
 describe('otras acciones', () => {
   test('asignar y crearTarea van por sus RPC', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T14:00:00Z')) // 9:00 a. m.: la de una vez del 27 sigue abierta
     await asignar('t-hoy-de-Sol', 'm-Leo', 'm-Ana', 'wall')
     expect(fake.rpcCalls('rpc_update_task')).toEqual([
       {

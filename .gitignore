@@ -24,3 +24,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Local agent working notes (may contain private data)
+.superpowers/
