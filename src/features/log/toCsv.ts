@@ -57,12 +57,72 @@ function cell(value: string): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
+const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
+
+/** The event payload in words; internal ids never reach the CSV. */
+export function describeDetail(e: EventRow, nick: Map<string, string>): string {
+  const p = e.payload as Record<string, unknown>
+  const who = (id: unknown) => {
+    const s = str(id)
+    return s === null ? null : (nick.get(s) ?? t('logUnknownActor'))
+  }
+  const parts: string[] = []
+  switch (e.type) {
+    case 'created': {
+      const to = who(p.assignee_id)
+      if (to) parts.push(t('csvFor', { nickname: to }))
+      break
+    }
+    case 'assigned': {
+      const from = who(p.from)
+      const to = who(p.to)
+      if (p.from !== p.to) {
+        if (from && to) parts.push(t('csvAssignee', { from, to }))
+        else if (to) parts.push(t('csvFor', { nickname: to }))
+      }
+      if (typeof p.household_to === 'boolean' && p.household_to !== p.household_from) {
+        parts.push(t(p.household_to ? 'csvHouseholdOn' : 'csvHouseholdOff'))
+      }
+      break
+    }
+    case 'renamed': {
+      const from = str(p.from)
+      const to = str(p.to)
+      if (from !== null && to !== null) parts.push(t('csvRenamed', { from, to }))
+      break
+    }
+    case 'moved': {
+      const from = str(p.from)
+      const to = str(p.to)
+      if (from && to) parts.push(t('csvMoved', { from, to }))
+      else if (to) parts.push(t('csvMovedTo', { to }))
+      break
+    }
+    case 'completed':
+      if (typeof p.late === 'boolean') parts.push(t(p.late ? 'csvLate' : 'csvOnTime'))
+      if (p.forOther === true) parts.push(t('csvForOther'))
+      break
+    case 'recurrence_changed':
+      if (str(p.split_to) !== null) parts.push(t('csvSplit'))
+      break
+    case 'deleted_series': {
+      const end = str(p.new_end_date)
+      if (p.deleted_task === true) parts.push(t('csvWholeSeries'))
+      else if (end) parts.push(t('csvSeriesEnds', { date: end }))
+      break
+    }
+    default:
+      break
+  }
+  return parts.join('; ')
+}
+
 export function toCsv(events: EventRow[], members: Member[], timeZone: string): string {
   const nick = new Map(members.map((m) => [m.id, m.nickname] as const))
   const lines = [t('logHeader')]
   for (const e of events) {
     const when = new Date(e.at)
-    const payload = Object.keys(e.payload).length === 0 ? '' : JSON.stringify(e.payload)
+    const payload = describeDetail(e, nick)
     lines.push(
       [
         todayIn(timeZone, when),

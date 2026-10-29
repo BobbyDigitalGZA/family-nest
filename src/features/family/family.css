@@ -13,13 +13,9 @@
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .fv-compliance { display: grid; gap: 4px; font-size: var(--primitive-fontSize-md); color: var(--color-texto-apagado); }
 .fv-tasks { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 4px; }
-.fv-fullscreen { position: fixed; right: 8px; bottom: 8px; z-index: 5; font: inherit; font-size: 12px; padding: 4px 10px; border: 0; border-radius: var(--chip-radius); color: var(--color-texto-apagado); background: var(--panel-bg); box-shadow: var(--primitive-shadow-elevar-1); cursor: pointer; }
+/* Fuera del lienzo escalado: crece con la pared por --wall-scale y nunca baja de 44 px tocables. */
+.fv-fullscreen { position: fixed; right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 5; font: inherit; font-size: calc(14px * var(--wall-scale, 1)); min-width: 44px; min-height: 44px; padding: calc(8px * var(--wall-scale, 1)) calc(16px * var(--wall-scale, 1)); border: 0; border-radius: var(--chip-radius); color: var(--color-texto-apagado); background: var(--panel-bg); box-shadow: var(--primitive-shadow-elevar-1); cursor: pointer; }
 .fv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .fv-ribbon { padding: 4px 6px 10px; margin: -4px -6px -10px; }
-.fv-tasks .tk-row { grid-template-columns: auto minmax(0, 1fr) auto; }
-.fv-tasks .tk-check { grid-column: 1; grid-row: 1 / span 2; }
-.fv-tasks .tk-title { grid-column: 2; grid-row: 1; overflow-wrap: anywhere; }
-.fv-tasks .tk-meta { grid-column: 2; grid-row: 2; }
-.fv-tasks .tk-del { grid-column: 3; grid-row: 1 / span 2; }
 .fv-ribbon { flex-wrap: wrap; overflow: visible; padding: 0; margin: 0; }
 .fv-pill { flex: none; }

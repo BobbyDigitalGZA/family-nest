@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEffect } from 'react'
 import { member } from '../../test/factories'
 import { IdentityProvider } from './IdentityProvider'
 import { useActor } from './useActor'
@@ -40,6 +41,28 @@ test('cancelar ¿Quién eres? rechaza con identity-cancelled y cierra el diálog
   await userEvent.click(screen.getByRole('button', { name: 'pedir' }))
   const dialog = await screen.findByRole('dialog', { name: '¿Quién eres?' })
   await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+  await waitFor(() => expect(result).toBe('identity-cancelled'))
+  expect(screen.queryByRole('dialog')).toBeNull()
+})
+
+test('volver a la familia con la pregunta abierta la cierra y rechaza a quien esperaba', async () => {
+  const holder = { back: () => {} }
+  function Back() {
+    const { backToFamily } = useActor()
+    useEffect(() => {
+      holder.back = backToFamily
+    }, [backToFamily])
+    return null
+  }
+  render(
+    <IdentityProvider device="wall" members={people}>
+      <Asker />
+      <Back />
+    </IdentityProvider>,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'pedir' }))
+  await screen.findByRole('dialog', { name: '¿Quién eres?' })
+  act(() => holder.back())
   await waitFor(() => expect(result).toBe('identity-cancelled'))
   expect(screen.queryByRole('dialog')).toBeNull()
 })

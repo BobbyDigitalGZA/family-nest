@@ -87,7 +87,11 @@ export function IdentityProvider({ device, members, memberId = null, children }:
     pending.forEach((w) => w.reject(new Error('identity-cancelled')))
   }, [])
 
-  const backToFamily = useCallback(() => dispatch({ type: 'backToFamily' }), [])
+  // Volver a la familia también cierra un "¿Quién eres?" abierto: la acción que lo pidió ya no vale.
+  const backToFamily = useCallback(() => {
+    dispatch({ type: 'backToFamily' })
+    if (waiters.current.length > 0) cancel()
+  }, [cancel])
 
   const api = useMemo<ActorApi>(
     () => ({

@@ -208,6 +208,19 @@ export const es = {
   logMoved: 'Movió',
   logHeader: 'fecha,hora,quién,acción,tarea,día de la tarea,equipo,detalle',
   logUnknownActor: '—',
+  csvFor: 'para {nickname}',
+  csvAssignee: 'de {from} a {to}',
+  csvHouseholdOn: 'pasa a ser de la casa',
+  csvHouseholdOff: 'deja de ser de la casa',
+  csvRenamed: 'de «{from}» a «{to}»',
+  csvMoved: 'del {from} al {to}',
+  csvMovedTo: 'al {to}',
+  csvLate: 'tarde',
+  csvOnTime: 'a tiempo',
+  csvForOther: 'por otra persona',
+  csvSplit: 'desde hoy sigue en una serie nueva',
+  csvWholeSeries: 'toda la serie',
+  csvSeriesEnds: 'la serie termina el {date}',
 }
 
 export type TKey = keyof typeof es
